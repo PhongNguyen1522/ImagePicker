@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layout_music_player"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingVertical="12dp"
+    android:background="#D1E2F5"
+    app:layout_constraintBottom_toBottomOf="@id/guideline1"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toBottomOf="@+id/guideline">
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cv_music_note"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="16dp"
+        android:backgroundTint="#D2E3FA"
+        app:cardCornerRadius="100dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/round_border"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_music_note" />
+
+    </androidx.cardview.widget.CardView>
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tv_song_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:text="Name of Song"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@+id/tv_song_writer"
+        app:layout_constraintEnd_toStartOf="@+id/img_btn_play_pause"
+        app:layout_constraintStart_toEndOf="@+id/cv_music_note"
+        app:layout_constraintTop_toTopOf="@id/cv_music_note" />
+
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tv_song_writer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:text="Song Writer"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="@+id/cv_music_note"
+        app:layout_constraintEnd_toStartOf="@+id/img_btn_play_pause"
+        app:layout_constraintStart_toEndOf="@+id/cv_music_note"
+        app:layout_constraintTop_toBottomOf="@+id/tv_song_name" />
+
+    <androidx.appcompat.widget.AppCompatImageButton
+        android:id="@+id/img_btn_play_pause"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="16dp"
+        android:background="@null"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_play"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,5 +1,14 @@
 package com.phongnn.imagepicker.presenter.callback
 
+import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
+import com.phongnn.imagepicker.data.model.MyImage
+
 interface ApiCallBack {
-    fun onApiCallingComplete(imgUrl: ByteArray)
+
+    // Listen image topic
+    fun onImageTopicReturn(topic: String)
+
+    // Listen Image Object
+    fun onImageReturn(returnImage: MyImage)
+
 }
