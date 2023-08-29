@@ -224,10 +224,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkEmptySongToPlay(): Boolean {
-        return binding.tvSongName.text == "Name of Song" || binding.tvSongWriter.text == "Song Writer"
-    }
-
     private fun createSongList(): List<Song> {
         return listOf(
             Song(1, "Song 1", "Artist 1", R.raw.vang_trang_khoc),

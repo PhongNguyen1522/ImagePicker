@@ -8,7 +8,8 @@ data class ImageEntity(
     @PrimaryKey
     val id: Int = 0, // Position in Recycler View
     val imageUrl: ByteArray,
-    val isDownLoaded: Boolean
+    val path: String, // New field
+    val type: String, // New field
 ) {
 
     // Auto generate

@@ -80,9 +80,8 @@ class ChildImageAdapter(
                 }
                 // Save new image
                 if (cnt == savedImages.size) {
-                    val imageEntity = ImageEntity(position, myImage.matrix, true)
+                    val imageEntity = ImageEntity(position, myImage.matrix, myImage.uri, myImage.type)
                     itemClickListener?.onDownloadImage(imageEntity)
-                    Thread.sleep(1000)
                     itemClickListener?.onShowSavedImage(imageEntity)
                     binding.cvIcDownload.visibility = View.GONE
                     binding.imvDownloadedImage.visibility = View.VISIBLE

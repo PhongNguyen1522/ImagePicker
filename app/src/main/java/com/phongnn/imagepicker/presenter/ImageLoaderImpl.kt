@@ -49,7 +49,11 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
     }
 
     init {
-        imagePresenter = ImagePresenter.getInstance(ImageRepository(ImageDatabase.getDatabase(context).imageDao()))
+        imagePresenter = ImagePresenter.getInstance(
+            ImageRepository(
+                ImageDatabase.getDatabase(context).imageDao()
+            )
+        )
     }
 
     override fun loadImage(
@@ -111,7 +115,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                     // When success, save into MyImage Object and update recycler view
                     if (response.isSuccessful) {
                         val imgUrl = response.body()!!.bytes()
-                        myImage = MyImage(imgUrl, myUri, false)
+                        myImage = MyImage(imgUrl, myUri, folder, number)
 
                         // Callback for save and update
                         callBack.onImageReturn(myImage)
@@ -128,25 +132,16 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
     }
 
     override fun downloadImage(context: Context, imageEntity: ImageEntity) {
-        try {
-            val request = DownloadManager.Request(Uri.parse(myImage.uri))
-                .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-                .setTitle("Image Download")
-                .setDescription("Downloading image ...")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "image.jpg")
-            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadManager.enqueue(request)
-        } catch (e: Exception) {
-            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
-        }
+
 
         runBlocking {
             launch(Dispatchers.IO) {
                 imagePresenter.insertImage(imageEntity)
+                downLoadImageInStorage(context, imageEntity.path)
             }
         }
     }
+
 
     override fun showImageById(context: Context, imageEntity: ImageEntity) {
         runBlocking {
@@ -172,5 +167,16 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         }
     }
 
+    private fun downLoadImageInStorage(context: Context, uriLink: String) {
+        val request = DownloadManager.Request(Uri.parse(uriLink))
+            .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+            .setTitle("Image Download")
+            .setDescription("Downloading image ...")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "image.jpg")
+
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        downloadManager.enqueue(request)
+    }
 
 }
