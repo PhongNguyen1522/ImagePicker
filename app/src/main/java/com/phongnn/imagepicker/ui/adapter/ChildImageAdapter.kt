@@ -21,7 +21,9 @@ class ChildImageAdapter(
 
     interface ItemClickListener {
         fun onDownloadImage(imageEntity: ImageEntity)
+        fun onDownloadImageToStorage(myImage: MyImage)
         fun onShowSavedImage(imageEntity: ImageEntity)
+        fun onShowDownloadedImage(myImage: MyImage)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChildImageViewHolder {
@@ -82,7 +84,10 @@ class ChildImageAdapter(
                 if (cnt == savedImages.size) {
                     val imageEntity = ImageEntity(position, myImage.matrix, myImage.uri, myImage.type)
                     itemClickListener?.onDownloadImage(imageEntity)
-                    itemClickListener?.onShowSavedImage(imageEntity)
+
+                    itemClickListener?.onDownloadImageToStorage(myImage)
+                    itemClickListener?.onShowDownloadedImage(myImage)
+//                    itemClickListener?.onShowSavedImage(imageEntity)
                     binding.cvIcDownload.visibility = View.GONE
                     binding.imvDownloadedImage.visibility = View.VISIBLE
                     notifyItemChanged(position)

@@ -8,9 +8,15 @@ package com.phongnn.imagepicker.presenter
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import android.widget.ImageView
+import androidx.core.content.ContextCompat.registerReceiver
+import com.bumptech.glide.Glide
+import com.jsibbold.zoomage.ZoomageView
+import com.phongnn.imagepicker.MainActivity
 import com.phongnn.imagepicker.data.api.ImageAPIService
 import com.phongnn.imagepicker.data.api.RetrofitInstance
 import com.phongnn.imagepicker.data.dbentity.db.ImageDatabase
@@ -115,7 +121,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                     // When success, save into MyImage Object and update recycler view
                     if (response.isSuccessful) {
                         val imgUrl = response.body()!!.bytes()
-                        myImage = MyImage(imgUrl, myUri, folder, number)
+                        myImage = MyImage(imgUrl, myUri, folder, number, 0)
 
                         // Callback for save and update
                         callBack.onImageReturn(myImage)
@@ -132,12 +138,9 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
     }
 
     override fun downloadImage(context: Context, imageEntity: ImageEntity) {
-
-
         runBlocking {
             launch(Dispatchers.IO) {
                 imagePresenter.insertImage(imageEntity)
-                downLoadImageInStorage(context, imageEntity.path)
             }
         }
     }
@@ -167,16 +170,55 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         }
     }
 
-    private fun downLoadImageInStorage(context: Context, uriLink: String) {
-        val request = DownloadManager.Request(Uri.parse(uriLink))
+    override fun downLoadImageToStorage(context: Context, myImage: MyImage): Long {
+        val request = DownloadManager.Request(Uri.parse(myImage.uri))
             .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             .setTitle("Image Download")
             .setDescription("Downloading image ...")
+            .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "image.jpg")
+            .setDestinationInExternalPublicDir(
+                Environment.DIRECTORY_DOWNLOADS,
+                "${myImage.type}_${myImage.frameNumber}.jpg"
+            )
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        downloadManager.enqueue(request)
+        val id = downloadManager.enqueue(request)
+
+        Log.d(CommonConstant.MY_LOG_TAG, "Download ID: $id")
+        return id
     }
 
+    override fun showImageFromStorage(
+        context: Context,
+        imageView: ZoomageView,
+        downloadId: Long,
+    ) {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+
+        val cursor = downloadManager.query(query)
+        if (cursor != null && cursor.moveToFirst()) {
+            val columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            val status = cursor.getInt(columnIndex)
+
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                val downloadedUriString = cursor.getString(localUriIndex)
+
+                val downloadedUri = Uri.parse(downloadedUriString)
+                val filePath = downloadedUri.path // File path in the device's storage
+
+                // Now you have the file path to the downloaded image
+                if (filePath != null) {
+                    // Load and display the downloaded image using an image-loading library
+                    // or the built-in methods, like setImageURI for ImageView
+                    Glide.with(context)
+                        .load(Uri.parse(filePath))
+                        .into(imageView)
+                }
+                cursor.close()
+            }
+        }
+    }
 }

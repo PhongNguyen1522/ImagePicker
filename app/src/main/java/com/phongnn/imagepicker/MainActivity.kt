@@ -1,14 +1,18 @@
 package com.phongnn.imagepicker
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.database.sqlite.SQLiteConstraintException
-import android.media.MediaPlayer
+import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.bumptech.glide.Glide
 import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
@@ -16,36 +20,37 @@ import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.databinding.ActivityMainBinding
 import com.phongnn.imagepicker.presenter.ImageLoader
 import com.phongnn.imagepicker.presenter.ImageLoaderImpl
-import com.phongnn.imagepicker.presenter.callback.ApiCallBack
-import com.phongnn.imagepicker.presenter.callback.DatabaseCallBack
-import com.phongnn.imagepicker.presenter.callback.MusicServiceListener
-import com.phongnn.imagepicker.presenter.callback.SongPassedListener
+import com.phongnn.imagepicker.presenter.callback.*
 import com.phongnn.imagepicker.ui.adapter.ChildImageAdapter
 import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
 import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 
+@Suppress("DeferredResultUnused")
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        var isPlaying = false
+        var downloadId: Long = -1L
+    }
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var imageLoader: ImageLoader
+    private lateinit var downloadReceiver: DownloadReceiver
     private var imagesList = mutableListOf<MyImage>()
     private var savedImageList = mutableListOf<ImageEntity>()
     private var topicList = mutableListOf<String>()
     private lateinit var songListDialogFragment: SongListDialogFragment
 
-    companion object {
-        var isPlaying = false
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         imageLoader = ImageLoaderImpl.getInstance(this)
+
         // Loading Images into RecyclerView
         runBlocking {
             launch(Dispatchers.IO) {
@@ -73,6 +78,7 @@ class MainActivity : AppCompatActivity() {
                     override fun onImageSelected(savingImage: ImageEntity) {
                         TODO("Not yet implemented")
                     }
+
                     override fun onAllImagesReturn(allUsers: List<ImageEntity>) {
                         savedImageList.addAll(allUsers)
                     }
@@ -109,18 +115,41 @@ class MainActivity : AppCompatActivity() {
                         try {
                             imageLoader.downloadImage(this@MainActivity, imageEntity)
                         } catch (e: SQLiteConstraintException) {
-                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
+                            Log.e(
+                                CommonConstant.MY_LOG_TAG,
+                                "onDownloadImage: ${e.message.toString()}"
+                            )
+                        }
+                    }
+
+                    override fun onDownloadImageToStorage(myImage: MyImage) {
+                        try {
+                            imageLoader.downLoadImageToStorage(this@MainActivity, myImage)
+                            // Create filter
+                            val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+                            downloadReceiver = DownloadReceiver()
+                            registerReceiver(downloadReceiver, filter)
+
+                        } catch (e: Exception) {
+                            Log.e(
+                                CommonConstant.MY_LOG_TAG,
+                                "onDownloadImage: ${e.message.toString()}"
+                            )
                         }
                     }
 
                     override fun onShowSavedImage(imageEntity: ImageEntity) {
-                        try {
-                            Glide.with(this@MainActivity)
-                                .load(imageEntity.imageUrl)
-                                .into(binding.imvImageFrame)
-                        } catch (e: Exception) {
-                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
-                        }
+//                        try {
+//                            Glide.with(this@MainActivity)
+//                                .load(imageEntity.imageUrl)
+//                                .into(binding.imvImageFrame)
+//                        } catch (e: Exception) {
+//                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
+//                        }
+                    }
+
+                    override fun onShowDownloadedImage(myImage: MyImage) {
+
                     }
                 })
         binding.rcvImages.apply {
@@ -155,9 +184,6 @@ class MainActivity : AppCompatActivity() {
         imageLoader.showAllImages(databaseCallBack)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-    }
 
     private fun scrollToPosition(position: Int) {
         val scrollSize = 160
@@ -184,7 +210,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSongListDialog() {
         val songList = createSongList()
-        songListDialogFragment = SongListDialogFragment(songList, object : MusicServiceListener{
+        songListDialogFragment = SongListDialogFragment(songList, object : MusicServiceListener {
             override fun onMusicIsPlaying(song: Song) {
                 binding.apply {
                     songListDialogFragment.dismiss()
@@ -235,4 +261,49 @@ class MainActivity : AppCompatActivity() {
             Song(7, "Song 7", "Artist 7", R.raw.ko_thuong_minh_de_thuong_nguoi),
         )
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(downloadReceiver)
+    }
+
+    inner class DownloadReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
+
+                val downloadManager =
+                    context?.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+
+                val query = DownloadManager.Query().setFilterById(downloadId)
+
+                val cursor = downloadManager.query(query)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    val status = cursor.getInt(columnIndex)
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                        val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                        val downloadedUriString = cursor.getString(localUriIndex)
+
+                        val downloadedUri = Uri.parse(downloadedUriString)
+                        val filePath = downloadedUri.path // File path in the device's storage
+
+                        // Now you have the file path to the downloaded image
+                        if (filePath != null) {
+                            // Load and display the downloaded image using an image-loading library
+                            // or the built-in methods, like setImageURI for ImageView
+                            binding.imvImageFrame.setImageURI(Uri.parse(filePath))
+                        } else {
+                            Toast.makeText(this@MainActivity, "Non-existed image", Toast.LENGTH_SHORT).show()
+                        }
+                        cursor.close()
+                    }
+                }
+
+            }
+        }
+    }
+
 }
