@@ -8,15 +8,11 @@ package com.phongnn.imagepicker.presenter
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
-import android.widget.ImageView
-import androidx.core.content.ContextCompat.registerReceiver
 import com.bumptech.glide.Glide
 import com.jsibbold.zoomage.ZoomageView
-import com.phongnn.imagepicker.MainActivity
 import com.phongnn.imagepicker.data.api.ImageAPIService
 import com.phongnn.imagepicker.data.api.RetrofitInstance
 import com.phongnn.imagepicker.data.dbentity.db.ImageDatabase
@@ -33,6 +29,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.ResponseBody
 import retrofit2.Response
+import java.io.File
+
 
 class ImageLoaderImpl(context: Context) : ImageLoader {
 
@@ -171,18 +169,30 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
     }
 
     override fun downLoadImageToStorage(context: Context, myImage: MyImage): Long {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(Uri.parse(myImage.uri))
             .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             .setTitle("Image Download")
             .setDescription("Downloading image ...")
-            .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(
-                Environment.DIRECTORY_DOWNLOADS,
-                "${myImage.type}_${myImage.frameNumber}.jpg"
-            )
+//            .setDestinationInExternalPublicDir(
+//                Environment.DIRECTORY_DOWNLOADS,
+//                "${myImage.type}_${myImage.frameNumber}"
+//            )
+        val downloadDirectory = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        ).toString()
+        val folderName = "ImagePicker"
+        val fileName = "${myImage.type}_${myImage.frameNumber}.jpg"
+        val subFolderPath = "$downloadDirectory/$folderName"
+        val subFolder = File(subFolderPath)
+        if (!subFolder.exists()) {
+            subFolder.mkdir()
+        }
+        // Set dest folder and file name
+        val destFilePath = "$subFolderPath/$fileName"
+        request.setDestinationUri(Uri.parse("file://$destFilePath"))
 
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val id = downloadManager.enqueue(request)
 
         Log.d(CommonConstant.MY_LOG_TAG, "Download ID: $id")

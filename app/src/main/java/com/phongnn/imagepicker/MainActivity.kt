@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteConstraintException
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -26,13 +27,16 @@ import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
 import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
 import kotlinx.coroutines.*
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
 
 @Suppress("DeferredResultUnused")
 class MainActivity : AppCompatActivity() {
 
     companion object {
         var isPlaying = false
-        var downloadId: Long = -1L
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -127,7 +131,7 @@ class MainActivity : AppCompatActivity() {
                             imageLoader.downLoadImageToStorage(this@MainActivity, myImage)
                             // Create filter
                             val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-                            downloadReceiver = DownloadReceiver()
+                            downloadReceiver = DownloadReceiver(myImage)
                             registerReceiver(downloadReceiver, filter)
 
                         } catch (e: Exception) {
@@ -267,7 +271,7 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(downloadReceiver)
     }
 
-    inner class DownloadReceiver : BroadcastReceiver() {
+    inner class DownloadReceiver(private val myImage: MyImage) : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
 
@@ -286,17 +290,19 @@ class MainActivity : AppCompatActivity() {
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
                         val downloadedUriString = cursor.getString(localUriIndex)
-
                         val downloadedUri = Uri.parse(downloadedUriString)
                         val filePath = downloadedUri.path // File path in the device's storage
-
                         // Now you have the file path to the downloaded image
                         if (filePath != null) {
                             // Load and display the downloaded image using an image-loading library
                             // or the built-in methods, like setImageURI for ImageView
                             binding.imvImageFrame.setImageURI(Uri.parse(filePath))
                         } else {
-                            Toast.makeText(this@MainActivity, "Non-existed image", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Non-existed image",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                         cursor.close()
                     }
