@@ -12,10 +12,12 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.databinding.ActivityMainBinding
+import com.phongnn.imagepicker.presenter.MyFileWatcher
 import com.phongnn.imagepicker.presenter.ImageLoader
 import com.phongnn.imagepicker.presenter.ImageLoaderImpl
 import com.phongnn.imagepicker.presenter.callback.*
@@ -25,7 +27,6 @@ import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
 import kotlinx.coroutines.*
 
-@Suppress("DeferredResultUnused")
 class MainActivity : AppCompatActivity() {
 
     companion object {
@@ -35,9 +36,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var imageLoader: ImageLoader
     private lateinit var downloadReceiver: DownloadReceiver
+    private lateinit var myFileWatcher: MyFileWatcher
     private var imagesList = mutableListOf<MyImage>()
     private var topicList = mutableListOf<String>()
     private lateinit var songListDialogFragment: SongListDialogFragment
+    private var imageInfoList = mutableListOf<ImageInfo>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +50,7 @@ class MainActivity : AppCompatActivity() {
 
         imageLoader = ImageLoaderImpl.getInstance(this)
 
-        // Loading Images into RecyclerView
+        // Loading Images From API into RecyclerView
         runBlocking {
             launch(Dispatchers.IO) {
                 loadingImage(object : ApiCallBack {
@@ -67,30 +70,40 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Check saved image list to determine saved images before
-        runBlocking {
-            launch(Dispatchers.IO) {
-
-            }
-        }
-
         // Init Recycler View
         initRecyclerView()
+
+        // Initialize myWatcher
+        myFileWatcher = MyFileWatcher(this, CommonConstant.MY_IMAGE_DIR, object :
+            MyFileWatcher.MyOwnFileChanged {
+            override fun onChangedFile() {
+                getInfoImageFromDir()
+            }
+
+        })
 
         // Show song list dialog
         binding.tvSongName.setOnClickListener {
             showSongListDialog()
         }
 
+        // Load stored images into InfoImageList
+        getInfoImageFromDir()
+
         // start service for play music
         onClickPlayOrPauseMusic()
+
+        Log.d(CommonConstant.MY_LOG_TAG, "onCreate()")
+
     }
+
 
     override fun onResume() {
         super.onResume()
         binding.btnNoneImage.setOnClickListener {
             binding.imvImageFrame.setImageBitmap(null)
         }
+        Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
     }
 
     private fun initRecyclerView() {
@@ -149,7 +162,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     private fun scrollToPosition(position: Int) {
         val scrollSize = 160
         binding.hsvMenu.smoothScrollTo(position * scrollSize, 0)
@@ -194,11 +206,6 @@ class MainActivity : AppCompatActivity() {
         val startBtn = binding.icPlayPause
 
         startBtn.setOnClickListener {
-//            if (checkEmptySongToPlay()) {
-//                binding.icPlayPause.visibility = View.GONE
-//            } else {
-//                binding.icPlayPause.visibility = View.VISIBLE
-//            }
             if (!isPlaying) {
                 binding.icPlayPause.visibility = View.VISIBLE
                 binding.icPlayPause.setImageResource(R.drawable.ic_pause)
@@ -227,9 +234,17 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun getInfoImageFromDir() {
+        imageInfoList.clear()
+        val tmp = imageLoader.getAllImagesFromLocalStorage(CommonConstant.MY_IMAGE_DIR)
+        imageInfoList.addAll(tmp)
+        Log.d(CommonConstant.MY_LOG_TAG, "imageInfoList size: ${imageInfoList.size}")
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(downloadReceiver)
+        myFileWatcher.stopWatching()
     }
 
     inner class DownloadReceiver(private val myImage: MyImage) : BroadcastReceiver() {
@@ -249,14 +264,15 @@ class MainActivity : AppCompatActivity() {
                     val status = cursor.getInt(columnIndex)
 
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
+
+                        Log.d(CommonConstant.MY_LOG_TAG, "STATUS_SUCCESSFUL imageInfoList size")
+
                         val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
                         val downloadedUriString = cursor.getString(localUriIndex)
                         val downloadedUri = Uri.parse(downloadedUriString)
                         val filePath = downloadedUri.path // File path in the device's storage
                         // Now you have the file path to the downloaded image
                         if (filePath != null) {
-                            // Load and display the downloaded image using an image-loading library
-                            // or the built-in methods, like setImageURI for ImageView
                             binding.imvImageFrame.setImageURI(Uri.parse(filePath))
                         } else {
                             Toast.makeText(
@@ -266,11 +282,27 @@ class MainActivity : AppCompatActivity() {
                             ).show()
                         }
                         cursor.close()
+
                     }
                 }
 
             }
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(CommonConstant.MY_LOG_TAG, "onPause()")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d(CommonConstant.MY_LOG_TAG, "onStop()")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Log.d(CommonConstant.MY_LOG_TAG, "onStart()")
     }
 
 }
