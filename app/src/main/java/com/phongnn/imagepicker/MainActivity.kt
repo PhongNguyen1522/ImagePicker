@@ -5,16 +5,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.database.sqlite.SQLiteConstraintException
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Environment
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.CommonConstant
@@ -27,10 +24,6 @@ import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
 import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
 import kotlinx.coroutines.*
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
 
 @Suppress("DeferredResultUnused")
 class MainActivity : AppCompatActivity() {
@@ -43,7 +36,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var imageLoader: ImageLoader
     private lateinit var downloadReceiver: DownloadReceiver
     private var imagesList = mutableListOf<MyImage>()
-    private var savedImageList = mutableListOf<ImageEntity>()
     private var topicList = mutableListOf<String>()
     private lateinit var songListDialogFragment: SongListDialogFragment
 
@@ -78,15 +70,7 @@ class MainActivity : AppCompatActivity() {
         // Check saved image list to determine saved images before
         runBlocking {
             launch(Dispatchers.IO) {
-                savedImage(object : DatabaseCallBack {
-                    override fun onImageSelected(savingImage: ImageEntity) {
-                        TODO("Not yet implemented")
-                    }
 
-                    override fun onAllImagesReturn(allUsers: List<ImageEntity>) {
-                        savedImageList.addAll(allUsers)
-                    }
-                })
             }
         }
 
@@ -113,18 +97,8 @@ class MainActivity : AppCompatActivity() {
         val childImageAdapter =
             ChildImageAdapter(
                 imagesList,
-                savedImageList,
+
                 object : ChildImageAdapter.ItemClickListener {
-                    override fun onDownloadImage(imageEntity: ImageEntity) {
-                        try {
-                            imageLoader.downloadImage(this@MainActivity, imageEntity)
-                        } catch (e: SQLiteConstraintException) {
-                            Log.e(
-                                CommonConstant.MY_LOG_TAG,
-                                "onDownloadImage: ${e.message.toString()}"
-                            )
-                        }
-                    }
 
                     override fun onDownloadImageToStorage(myImage: MyImage) {
                         try {
@@ -140,16 +114,6 @@ class MainActivity : AppCompatActivity() {
                                 "onDownloadImage: ${e.message.toString()}"
                             )
                         }
-                    }
-
-                    override fun onShowSavedImage(imageEntity: ImageEntity) {
-//                        try {
-//                            Glide.with(this@MainActivity)
-//                                .load(imageEntity.imageUrl)
-//                                .into(binding.imvImageFrame)
-//                        } catch (e: Exception) {
-//                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
-//                        }
                     }
 
                     override fun onShowDownloadedImage(myImage: MyImage) {
@@ -184,9 +148,6 @@ class MainActivity : AppCompatActivity() {
         imageLoader.loadImage(apiCallBack)
     }
 
-    private fun savedImage(databaseCallBack: DatabaseCallBack) {
-        imageLoader.showAllImages(databaseCallBack)
-    }
 
 
     private fun scrollToPosition(position: Int) {

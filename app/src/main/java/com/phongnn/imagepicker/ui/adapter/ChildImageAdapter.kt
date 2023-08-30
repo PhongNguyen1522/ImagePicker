@@ -7,22 +7,18 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.databinding.ImageItemBinding
 
 class ChildImageAdapter(
     private val newImages: List<MyImage>,
-    private val savedImages: List<ImageEntity>,
     private var itemClickListener: ItemClickListener?,
 ) : RecyclerView.Adapter<ChildImageAdapter.ChildImageViewHolder>() {
 
     private var clickedPosition: Int = -1
 
     interface ItemClickListener {
-        fun onDownloadImage(imageEntity: ImageEntity)
         fun onDownloadImageToStorage(myImage: MyImage)
-        fun onShowSavedImage(imageEntity: ImageEntity)
         fun onShowDownloadedImage(myImage: MyImage)
     }
 
@@ -51,12 +47,7 @@ class ChildImageAdapter(
                 .into(binding.imvChildImage)
 
             // Check isDownloaded to show or not
-            for (img in savedImages) {
-                val savedPosition = img.id
-                if (position == savedPosition) {
-                    binding.cvIcDownload.visibility = View.GONE
-                }
-            }
+
 
             binding.imvChildImage.setOnClickListener {
                 // Logic for toggle item selected
@@ -71,27 +62,8 @@ class ChildImageAdapter(
                 // cnt: counting the number of images that is in db
                 var cnt = 0
                 // Check that images 've already been database or not, if not, save it
-                for (img in savedImages) {
-                    val savedImagePosition = img.id
-                    if (savedImagePosition == position) {
-                        // Show Image on main Activity
-                        itemClickListener?.onShowSavedImage(img)
-                    } else {
-                        cnt++
-                    }
-                }
+                itemClickListener?.onDownloadImageToStorage(myImage)
                 // Save new image
-                if (cnt == savedImages.size) {
-                    val imageEntity = ImageEntity(position, myImage.matrix, myImage.uri, myImage.type)
-                    itemClickListener?.onDownloadImage(imageEntity)
-
-                    itemClickListener?.onDownloadImageToStorage(myImage)
-                    itemClickListener?.onShowDownloadedImage(myImage)
-//                    itemClickListener?.onShowSavedImage(imageEntity)
-                    binding.cvIcDownload.visibility = View.GONE
-                    binding.imvDownloadedImage.visibility = View.VISIBLE
-                    notifyItemChanged(position)
-                }
 
             }
             // Show Check Icon

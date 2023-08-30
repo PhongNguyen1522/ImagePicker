@@ -1,6 +1,5 @@
 package com.phongnn.imagepicker.presenter.callback
 
-import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
 import com.phongnn.imagepicker.data.model.MyImage
 
 interface ApiCallBack {

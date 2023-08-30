@@ -11,19 +11,14 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
-import com.bumptech.glide.Glide
-import com.jsibbold.zoomage.ZoomageView
 import com.phongnn.imagepicker.data.api.ImageAPIService
 import com.phongnn.imagepicker.data.api.RetrofitInstance
-import com.phongnn.imagepicker.data.dbentity.db.ImageDatabase
-import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
+import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
-import com.phongnn.imagepicker.data.repo.ImageRepository
 import com.phongnn.imagepicker.data.utils.APIConstantString
 import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.data.utils.ImageLinkConverter
 import com.phongnn.imagepicker.presenter.callback.ApiCallBack
-import com.phongnn.imagepicker.presenter.callback.DatabaseCallBack
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -35,7 +30,6 @@ import java.io.File
 class ImageLoaderImpl(context: Context) : ImageLoader {
 
     private lateinit var myApiService: ImageAPIService
-    private var imagePresenter: ImagePresenter
     private lateinit var myImage: MyImage
 
     companion object {
@@ -50,14 +44,6 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
             }
             return instance!!
         }
-    }
-
-    init {
-        imagePresenter = ImagePresenter.getInstance(
-            ImageRepository(
-                ImageDatabase.getDatabase(context).imageDao()
-            )
-        )
     }
 
     override fun loadImage(
@@ -119,7 +105,8 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                     // When success, save into MyImage Object and update recycler view
                     if (response.isSuccessful) {
                         val imgUrl = response.body()!!.bytes()
-                        myImage = MyImage(imgUrl, myUri, folder, number, 0)
+                        val imageName = "${folder}_${number}.jpg"
+                        myImage = MyImage(imageName, imgUrl, myUri)
 
                         // Callback for save and update
                         callBack.onImageReturn(myImage)
@@ -135,38 +122,6 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         }
     }
 
-    override fun downloadImage(context: Context, imageEntity: ImageEntity) {
-        runBlocking {
-            launch(Dispatchers.IO) {
-                imagePresenter.insertImage(imageEntity)
-            }
-        }
-    }
-
-
-    override fun showImageById(context: Context, imageEntity: ImageEntity) {
-        runBlocking {
-            launch(Dispatchers.IO) {
-                imagePresenter.getImageById(imageEntity.id)
-            }
-        }
-    }
-
-    override fun showAllImages(callback: DatabaseCallBack) {
-        runBlocking {
-            launch(Dispatchers.IO) {
-                callback.onAllImagesReturn(imagePresenter.getAllUsers())
-            }
-        }
-    }
-
-    override fun deleteAllImages() {
-        runBlocking {
-            launch(Dispatchers.IO) {
-                imagePresenter.deleteAllImages()
-            }
-        }
-    }
 
     override fun downLoadImageToStorage(context: Context, myImage: MyImage): Long {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -175,15 +130,11 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
             .setTitle("Image Download")
             .setDescription("Downloading image ...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-//            .setDestinationInExternalPublicDir(
-//                Environment.DIRECTORY_DOWNLOADS,
-//                "${myImage.type}_${myImage.frameNumber}"
-//            )
         val downloadDirectory = Environment.getExternalStoragePublicDirectory(
             Environment.DIRECTORY_DOWNLOADS
         ).toString()
         val folderName = "ImagePicker"
-        val fileName = "${myImage.type}_${myImage.frameNumber}.jpg"
+        val fileName = myImage.imageName
         val subFolderPath = "$downloadDirectory/$folderName"
         val subFolder = File(subFolderPath)
         if (!subFolder.exists()) {
@@ -191,6 +142,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         }
         // Set dest folder and file name
         val destFilePath = "$subFolderPath/$fileName"
+
         request.setDestinationUri(Uri.parse("file://$destFilePath"))
 
         val id = downloadManager.enqueue(request)
@@ -199,36 +151,23 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         return id
     }
 
-    override fun showImageFromStorage(
-        context: Context,
-        imageView: ZoomageView,
-        downloadId: Long,
-    ) {
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val query = DownloadManager.Query().setFilterById(downloadId)
+    override fun getAllImagesFromLocalStorage(folderPath: String): List<ImageInfo> {
+        val imgInfoList = mutableListOf<ImageInfo>()
 
-        val cursor = downloadManager.query(query)
-        if (cursor != null && cursor.moveToFirst()) {
-            val columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-            val status = cursor.getInt(columnIndex)
-
-            if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                val downloadedUriString = cursor.getString(localUriIndex)
-
-                val downloadedUri = Uri.parse(downloadedUriString)
-                val filePath = downloadedUri.path // File path in the device's storage
-
-                // Now you have the file path to the downloaded image
-                if (filePath != null) {
-                    // Load and display the downloaded image using an image-loading library
-                    // or the built-in methods, like setImageURI for ImageView
-                    Glide.with(context)
-                        .load(Uri.parse(filePath))
-                        .into(imageView)
+        val folder = File(folderPath)
+        if (folder.isDirectory) {
+            val fileList = folder.listFiles()
+            for (file in fileList) {
+                if (file.isFile) {
+                    ImageInfo(file.name, Uri.fromFile(file)).also {
+                        imgInfoList.add(it)
+                    }
                 }
-                cursor.close()
             }
         }
+
+        return imgInfoList
     }
+
+
 }
