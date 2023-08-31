@@ -8,13 +8,16 @@ package com.phongnn.imagepicker.presenter
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import com.phongnn.imagepicker.data.api.ImageAPIService
 import com.phongnn.imagepicker.data.api.RetrofitInstance
 import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
+import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.APIConstantString
 import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.data.utils.ImageLinkConverter
@@ -65,7 +68,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                                 callBack.onImageTopicReturn(folder)
                                 val totalImage = photoFrame.totalImage
                                 // Call API for each Images
-                                for (frameNumber in 1..3) {
+                                for (frameNumber in 1..5) {
                                     // Link Uri for call images
                                     val myUri = ImageLinkConverter.getInstance().getChildImagePath(
                                         APIConstantString.START_LINK_FULL_FOR_DOWNLOAD,
@@ -167,6 +170,62 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         }
 
         return imgInfoList
+    }
+
+    override fun getAllMusicFromLocalStorage(context: Context, folderPath: String): List<Song> {
+        val musicInfoList = mutableListOf<Song>()
+
+        val uri: Uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.DATA
+        )
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+
+        val cursor: Cursor? = context.contentResolver.query(
+            uri,
+            projection,
+            selection,
+            null,
+            sortOrder
+        )
+
+        cursor?.use {
+            val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+
+            while (it.moveToNext()) {
+                val id = it.getLong(idColumn)
+                val title = it.getString(titleColumn)
+                val artist = it.getString(artistColumn)
+                val duration = it.getLong(durationColumn)
+                val data = it.getString(dataColumn)
+
+                val contentUri = Uri.withAppendedPath(
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString()
+                )
+
+                musicInfoList.add(
+                    Song(
+                        id,
+                        title,
+                        artist,
+                        duration,
+                        contentUri,
+                        data
+                    )
+                )
+            }
+        }
+
+        return musicInfoList
     }
 
 

@@ -1,5 +1,6 @@
 package com.phongnn.imagepicker
 
+import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -17,9 +18,7 @@ import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.databinding.ActivityMainBinding
-import com.phongnn.imagepicker.presenter.MyFileWatcher
-import com.phongnn.imagepicker.presenter.ImageLoader
-import com.phongnn.imagepicker.presenter.ImageLoaderImpl
+import com.phongnn.imagepicker.presenter.*
 import com.phongnn.imagepicker.presenter.callback.*
 import com.phongnn.imagepicker.ui.adapter.ChildImageAdapter
 import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
@@ -44,6 +43,7 @@ class MainActivity : AppCompatActivity() {
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d(CommonConstant.MY_LOG_TAG, "onCreate()")
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -70,9 +70,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Init Recycler View
-        initRecyclerView()
-
         // Initialize myWatcher
         myFileWatcher = MyFileWatcher(this, CommonConstant.MY_IMAGE_DIR, object :
             MyFileWatcher.MyOwnFileChanged {
@@ -90,27 +87,30 @@ class MainActivity : AppCompatActivity() {
         // Load stored images into InfoImageList
         getInfoImageFromDir()
 
+        // Song Info
+
         // start service for play music
         onClickPlayOrPauseMusic()
-
-        Log.d(CommonConstant.MY_LOG_TAG, "onCreate()")
-
     }
 
 
     override fun onResume() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
         super.onResume()
+        // Init Recycler View
+        initRecyclerView()
+
         binding.btnNoneImage.setOnClickListener {
             binding.imvImageFrame.setImageBitmap(null)
         }
-        Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
     }
 
     private fun initRecyclerView() {
         val childImageAdapter =
             ChildImageAdapter(
+                this@MainActivity,
                 imagesList,
-
+                imageInfoList,
                 object : ChildImageAdapter.ItemClickListener {
 
                     override fun onDownloadImageToStorage(myImage: MyImage) {
@@ -129,8 +129,8 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    override fun onShowDownloadedImage(myImage: MyImage) {
-
+                    override fun onShowDownloadedImage(imageInfo: ImageInfo) {
+                        binding.imvImageFrame.setImageURI(imageInfo.uriPath)
                     }
                 })
         binding.rcvImages.apply {
@@ -177,16 +177,12 @@ class MainActivity : AppCompatActivity() {
             val part = scrollViewWidth / 5
 
             currentPosition = scrollX / part
-
-            Log.d(CommonConstant.MY_LOG_TAG, "scrollX = $scrollX")
-            Log.d(CommonConstant.MY_LOG_TAG, "scrollViewWidth = $scrollViewWidth")
-            Log.d(CommonConstant.MY_LOG_TAG, "currentPosition = $currentPosition")
         }
         return currentPosition
     }
 
     private fun showSongListDialog() {
-        val songList = createSongList()
+        val songList = getSongListFromDir()
         songListDialogFragment = SongListDialogFragment(songList, object : MusicServiceListener {
             override fun onMusicIsPlaying(song: Song) {
                 binding.apply {
@@ -222,17 +218,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createSongList(): List<Song> {
-        return listOf(
-            Song(1, "Song 1", "Artist 1", R.raw.vang_trang_khoc),
-            Song(2, "Song 2", "Artist 2", R.raw.thuan_theo_y_troi),
-            Song(3, "Song 3", "Artist 3", R.raw.suyt_nua_thi),
-            Song(4, "Song 4", "Artist 4", R.raw.nag_tho),
-            Song(5, "Song 5", "Artist 5", R.raw.mua_xa_nhau),
-            Song(6, "Song 6", "Artist 6", R.raw.mot_thoi_da_xa),
-            Song(7, "Song 7", "Artist 7", R.raw.ko_thuong_minh_de_thuong_nguoi),
-        )
-    }
 
     private fun getInfoImageFromDir() {
         imageInfoList.clear()
@@ -241,15 +226,31 @@ class MainActivity : AppCompatActivity() {
         Log.d(CommonConstant.MY_LOG_TAG, "imageInfoList size: ${imageInfoList.size}")
     }
 
+    private fun getSongListFromDir(): List<Song> {
+        val songList = imageLoader.getAllMusicFromLocalStorage(this@MainActivity, CommonConstant.MY_MUSIC_DIR)
+
+        for (song in songList) {
+            Log.i(CommonConstant.MY_LOG_TAG, song.toString())
+        }
+
+        return songList
+    }
+
     override fun onDestroy() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onDestroy()")
         super.onDestroy()
         unregisterReceiver(downloadReceiver)
         myFileWatcher.stopWatching()
     }
 
     inner class DownloadReceiver(private val myImage: MyImage) : BroadcastReceiver() {
+        @SuppressLint("NotifyDataSetChanged")
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
+
+                // Update myInfoImageList
+                Log.d(CommonConstant.MY_LOG_TAG, "Download STATUS_SUCCESSFUL")
+                getInfoImageFromDir()
 
                 val downloadManager =
                     context?.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -265,8 +266,6 @@ class MainActivity : AppCompatActivity() {
 
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
 
-                        Log.d(CommonConstant.MY_LOG_TAG, "STATUS_SUCCESSFUL imageInfoList size")
-
                         val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
                         val downloadedUriString = cursor.getString(localUriIndex)
                         val downloadedUri = Uri.parse(downloadedUriString)
@@ -274,6 +273,8 @@ class MainActivity : AppCompatActivity() {
                         // Now you have the file path to the downloaded image
                         if (filePath != null) {
                             binding.imvImageFrame.setImageURI(Uri.parse(filePath))
+                            // Update recycler view
+                            binding.rcvImages.adapter?.notifyDataSetChanged()
                         } else {
                             Toast.makeText(
                                 this@MainActivity,
@@ -282,7 +283,6 @@ class MainActivity : AppCompatActivity() {
                             ).show()
                         }
                         cursor.close()
-
                     }
                 }
 
@@ -290,19 +290,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+
     override fun onPause() {
-        super.onPause()
         Log.d(CommonConstant.MY_LOG_TAG, "onPause()")
+        super.onPause()
     }
 
     override fun onStop() {
-        super.onStop()
         Log.d(CommonConstant.MY_LOG_TAG, "onStop()")
+        super.onStop()
     }
 
     override fun onStart() {
-        super.onStart()
         Log.d(CommonConstant.MY_LOG_TAG, "onStart()")
+        super.onStart()
     }
 
 }

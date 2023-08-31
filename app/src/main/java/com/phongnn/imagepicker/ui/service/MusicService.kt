@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -82,7 +83,7 @@ class MusicService : Service() {
     }
 
     private fun startMusic(song: Song) {
-        mediaPlayer = MediaPlayer.create(applicationContext, song.path)
+        mediaPlayer = MediaPlayer.create(applicationContext, song.contentUri)
         if (!isPlaying) {
             isPlaying = true
             mediaPlayer.start()

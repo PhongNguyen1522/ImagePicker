@@ -49,11 +49,8 @@ class MyFileWatcher(
 
                     when (kind) {
                         StandardWatchEventKinds.ENTRY_CREATE -> {
-                            showToast("File created: $fileName")
-                            myOwnFileChanged.onChangedFile()
                         }
                         StandardWatchEventKinds.ENTRY_DELETE -> {
-                            showToast("File deleted: $fileName")
                             myOwnFileChanged.onChangedFile()
                         }
                         else -> {

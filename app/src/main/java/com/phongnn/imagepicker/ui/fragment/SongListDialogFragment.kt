@@ -35,7 +35,7 @@ class SongListDialogFragment(
                     context.stopService(intent)
                     // Start to play music
                     val bundle = Bundle()
-                    bundle.putSerializable("object_song", song)
+                    bundle.putParcelable("object_song", song)
                     intent.putExtras(bundle)
                     context.startService(intent)
                     // Update Info in MainActivity

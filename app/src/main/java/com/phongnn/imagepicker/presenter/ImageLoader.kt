@@ -4,6 +4,7 @@ import android.content.Context
 import com.jsibbold.zoomage.ZoomageView
 import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
+import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.presenter.callback.ApiCallBack
 
 interface ImageLoader {
@@ -13,4 +14,6 @@ interface ImageLoader {
 
     // Get all images from local storage
     fun getAllImagesFromLocalStorage(folderPath: String): List<ImageInfo>
+
+    fun getAllMusicFromLocalStorage(context: Context, folderPath: String): List<Song>
 }
