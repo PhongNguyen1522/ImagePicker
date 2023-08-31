@@ -34,12 +34,14 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var imageLoader: ImageLoader
-    private lateinit var downloadReceiver: DownloadReceiver
     private lateinit var myFileWatcher: MyFileWatcher
     private var imagesList = mutableListOf<MyImage>()
     private var topicList = mutableListOf<String>()
     private lateinit var songListDialogFragment: SongListDialogFragment
     private var imageInfoList = mutableListOf<ImageInfo>()
+    private var downloadReceiver: DownloadReceiver? = null
+    // Define an action string for the notification click
+    private val notificationClickAction = "com.example.app.NOTIFICATION_CLICK"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,7 +82,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Show song list dialog
-        binding.tvSongName.setOnClickListener {
+        binding.cvMusicNote.setOnClickListener {
             showSongListDialog()
         }
 
@@ -227,7 +229,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getSongListFromDir(): List<Song> {
-        val songList = imageLoader.getAllMusicFromLocalStorage(this@MainActivity, CommonConstant.MY_MUSIC_DIR)
+        val songList =
+            imageLoader.getAllMusicFromLocalStorage(this@MainActivity, CommonConstant.MY_MUSIC_DIR)
 
         for (song in songList) {
             Log.i(CommonConstant.MY_LOG_TAG, song.toString())
@@ -239,7 +242,15 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         Log.d(CommonConstant.MY_LOG_TAG, "onDestroy()")
         super.onDestroy()
-        unregisterReceiver(downloadReceiver)
+
+        Intent(this@MainActivity, MusicService::class.java).also {
+            stopService(it)
+        }
+
+        if (downloadReceiver != null) {
+            unregisterReceiver(downloadReceiver)
+        }
+
         myFileWatcher.stopWatching()
     }
 
@@ -274,7 +285,7 @@ class MainActivity : AppCompatActivity() {
                         if (filePath != null) {
                             binding.imvImageFrame.setImageURI(Uri.parse(filePath))
                             // Update recycler view
-                            binding.rcvImages.adapter?.notifyDataSetChanged()
+//                            binding.rcvImages.adapter?.notifyItemChanged()
                         } else {
                             Toast.makeText(
                                 this@MainActivity,
@@ -291,7 +302,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     override fun onPause() {
         Log.d(CommonConstant.MY_LOG_TAG, "onPause()")
         super.onPause()
@@ -305,6 +315,15 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         Log.d(CommonConstant.MY_LOG_TAG, "onStart()")
         super.onStart()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        if (intent?.action == notificationClickAction) {
+            val mainIntent = Intent(this, MainActivity::class.java)
+            mainIntent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT // This brings the activity to the front if it's already running
+            startActivity(mainIntent)
+        }
     }
 
 }
