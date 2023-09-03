@@ -317,13 +317,4 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
     }
 
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        if (intent?.action == notificationClickAction) {
-            val mainIntent = Intent(this, MainActivity::class.java)
-            mainIntent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT // This brings the activity to the front if it's already running
-            startActivity(mainIntent)
-        }
-    }
-
 }

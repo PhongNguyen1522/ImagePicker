@@ -24,20 +24,19 @@ class SongListDialogFragment(
     private lateinit var binding: FragmentSongListDialogBinding
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        binding = FragmentSongListDialogBinding.inflate(LayoutInflater.from(context))
+        binding = FragmentSongListDialogBinding.inflate(LayoutInflater.from(requireContext()))
         binding.rcvSongList.apply {
-            layoutManager = LinearLayoutManager(context)
+            layoutManager = LinearLayoutManager(requireContext())
             adapter = SongListAdapter(songList, object : SongPassedListener {
                 override fun onSongPassed(song: Song) {
 
                     val intent = Intent(requireActivity(), MusicService::class.java)
-                    // Stop service if next song
-                    context.stopService(intent)
                     // Start to play music
                     val bundle = Bundle()
                     bundle.putParcelable("object_song", song)
                     intent.putExtras(bundle)
-                    context.startService(intent)
+                    intent.action = MusicService.ACTION_PLAY
+                    requireContext().startService(intent)
                     // Update Info in MainActivity
                     musicServiceListener?.onMusicIsPlaying(song)
 
