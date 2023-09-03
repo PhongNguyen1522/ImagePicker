@@ -13,14 +13,12 @@ import com.phongnn.imagepicker.databinding.TopicItemBinding
 class TopicImageAdapter(
     private val topics: List<String>,
     private var itemClickListener: TopicClickListener?,
-    private var scrollPosition: Int
 ) : RecyclerView.Adapter<TopicImageAdapter.TopicViewHolder>() {
 
     private var selectedPosition = RecyclerView.SCROLLBAR_POSITION_DEFAULT
 
     interface TopicClickListener {
         fun onItemClick(position: Int)
-        fun onItemScroll(position: Int)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TopicViewHolder {
@@ -70,10 +68,6 @@ class TopicImageAdapter(
             textView.setOnClickListener {
                 selectedPosition = position
                 itemClickListener?.onItemClick(position)
-                if (scrollPosition != 0) {
-                    selectedPosition = scrollPosition
-                    itemClickListener?.onItemScroll(scrollPosition)
-                }
                 notifyDataSetChanged()
             }
         }

@@ -7,8 +7,10 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ProgressBar
 import androidx.cardview.widget.CardView
+import androidx.core.view.marginStart
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.phongnn.imagepicker.R
 import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.databinding.ImageItemBinding
@@ -23,8 +25,9 @@ class ChildImageAdapter(
     private var clickedPosition: Int = -1
 
     interface ItemClickListener {
-        fun onDownloadImageToStorage(myImage: MyImage)
+        fun onDownloadImageToStorage(myImage: MyImage, position: Int)
         fun onShowDownloadedImage(imageInfo: ImageInfo)
+        fun onClickButtonNone()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChildImageViewHolder {
@@ -33,7 +36,11 @@ class ChildImageAdapter(
     }
 
     override fun onBindViewHolder(holder: ChildImageViewHolder, position: Int) {
-        holder.bind(newImages[position], position)
+        if (position == 0) {
+            holder.bindFirstImage(R.drawable.btn_none)
+        } else {
+            holder.bind(newImages[position], position)
+        }
     }
 
     override fun getItemCount(): Int {
@@ -43,12 +50,24 @@ class ChildImageAdapter(
     inner class ChildImageViewHolder(private val binding: ImageItemBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        fun bindFirstImage(image: Int) {
+            Glide.with(binding.root)
+                .load(image)
+                .into(binding.imvChildImage)
+            binding.cvIcDownload.visibility = View.GONE
+            binding.imvChildImage.setOnClickListener {
+                itemClickListener?.onClickButtonNone()
+            }
+        }
+
         @SuppressLint("NotifyDataSetChanged")
         fun bind(myImage: MyImage, position: Int) {
 
             // Check isDownloaded to show or not
             checkCurrentImageInStorage(
-                myImage.imageName, binding.cvIcDownload)
+                myImage.imageName,
+                binding.cvIcDownload,
+            )
 
             // Show Images for api call
             Glide.with(binding.root)
@@ -77,9 +96,8 @@ class ChildImageAdapter(
                 }
                 // If there's any image in folder(cnt > 0), just show image
                 if (cnt == imageInfoList.size) {
-                    notifyItemChanged(position)
                     itemClickListener?.apply {
-                        onDownloadImageToStorage(myImage)
+                        onDownloadImageToStorage(myImage, position)
                     }
                     for (img in imageInfoList) {
                         if (img.imageName.equals(myImage.imageName, false)) {
@@ -100,7 +118,7 @@ class ChildImageAdapter(
 
     private fun checkCurrentImageInStorage(
         name: String,
-        cvIcDownload: CardView
+        cvIcDownload: CardView,
     ) {
         for (imgInfo in imageInfoList) {
             if (imgInfo.imageName.equals(name, false)) {

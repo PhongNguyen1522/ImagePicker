@@ -8,10 +8,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
@@ -25,6 +27,7 @@ import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
 import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
 import kotlinx.coroutines.*
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,9 +43,28 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songListDialogFragment: SongListDialogFragment
     private var imageInfoList = mutableListOf<ImageInfo>()
     private var downloadReceiver: DownloadReceiver? = null
-    // Define an action string for the notification click
-    private val notificationClickAction = "com.example.app.NOTIFICATION_CLICK"
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val state = intent?.getBooleanExtra("button_state", false)
+            if (state != null) {
+                isPlaying = state
+                if (!isPlaying) {
+                    binding.icPlayPause.visibility = View.VISIBLE
+                    binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+                    val intent = Intent(this@MainActivity, MusicService::class.java)
+                    intent.putExtra("action", CommonConstant.PLAY)
+                    startService(intent)
+                } else {
+                    binding.icPlayPause.visibility = View.VISIBLE
+                    binding.icPlayPause.setImageResource(R.drawable.ic_play)
+                    val intent = Intent(this@MainActivity, MusicService::class.java)
+                    intent.putExtra("action", CommonConstant.PAUSE)
+                    startService(intent)
+                }
+            }
+        }
 
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.d(CommonConstant.MY_LOG_TAG, "onCreate()")
@@ -81,32 +103,32 @@ class MainActivity : AppCompatActivity() {
 
         })
 
+        // Load stored images into InfoImageList
+        getInfoImageFromDir()
+
         // Show song list dialog
         binding.cvMusicNote.setOnClickListener {
             showSongListDialog()
         }
 
-        // Load stored images into InfoImageList
-        getInfoImageFromDir()
 
-        // Song Info
-
-        // start service for play music
-        onClickPlayOrPauseMusic()
+        // Register the LocalBroadcastReceiver to listen for data
+        val filter = IntentFilter(CommonConstant.ACTION_UPDATE_BUTTON_STATE)
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter)
     }
 
 
     override fun onResume() {
         Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
         super.onResume()
+        createImagePickerFolder()
         // Init Recycler View
         initRecyclerView()
-
-        binding.btnNoneImage.setOnClickListener {
-            binding.imvImageFrame.setImageBitmap(null)
-        }
+        // start service for play music
+        onClickPlayOrPauseMusic()
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private fun initRecyclerView() {
         val childImageAdapter =
             ChildImageAdapter(
@@ -115,12 +137,12 @@ class MainActivity : AppCompatActivity() {
                 imageInfoList,
                 object : ChildImageAdapter.ItemClickListener {
 
-                    override fun onDownloadImageToStorage(myImage: MyImage) {
+                    override fun onDownloadImageToStorage(myImage: MyImage, position: Int) {
                         try {
                             imageLoader.downLoadImageToStorage(this@MainActivity, myImage)
                             // Create filter
                             val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-                            downloadReceiver = DownloadReceiver(myImage)
+                            downloadReceiver = DownloadReceiver(myImage, position)
                             registerReceiver(downloadReceiver, filter)
 
                         } catch (e: Exception) {
@@ -134,7 +156,12 @@ class MainActivity : AppCompatActivity() {
                     override fun onShowDownloadedImage(imageInfo: ImageInfo) {
                         binding.imvImageFrame.setImageURI(imageInfo.uriPath)
                     }
+
+                    override fun onClickButtonNone() {
+                        binding.imvImageFrame.setImageBitmap(null)
+                    }
                 })
+
         binding.rcvImages.apply {
             layoutManager =
                 LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
@@ -142,16 +169,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         val topicImageAdapter =
-            TopicImageAdapter(topicList, object : TopicImageAdapter.TopicClickListener {
+            TopicImageAdapter(topicList, object : TopicImageAdapter.TopicClickListener{
                 override fun onItemClick(position: Int) {
-                    scrollToPosition(position * 5)
-                }
-
-                override fun onItemScroll(position: Int) {
 
                 }
 
-            }, onScrollViewListener())
+            })
         binding.rcvImagesTopic.apply {
             layoutManager =
                 LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
@@ -161,26 +184,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadingImage(apiCallBack: ApiCallBack) {
         imageLoader.loadImage(apiCallBack)
-    }
-
-
-    private fun scrollToPosition(position: Int) {
-        val scrollSize = 160
-        binding.hsvMenu.smoothScrollTo(position * scrollSize, 0)
-    }
-
-    private fun onScrollViewListener(): Int {
-
-        var currentPosition = 0
-        binding.hsvMenu.viewTreeObserver.addOnScrollChangedListener {
-            val scrollX = binding.hsvMenu.scrollX
-            val scrollViewWidth = binding.hsvMenu.getChildAt(0).width - 700
-
-            val part = scrollViewWidth / 5
-
-            currentPosition = scrollX / part
-        }
-        return currentPosition
     }
 
     private fun showSongListDialog() {
@@ -202,7 +205,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun onClickPlayOrPauseMusic() {
         val startBtn = binding.icPlayPause
-
         startBtn.setOnClickListener {
             if (!isPlaying) {
                 binding.icPlayPause.visibility = View.VISIBLE
@@ -228,15 +230,36 @@ class MainActivity : AppCompatActivity() {
         Log.d(CommonConstant.MY_LOG_TAG, "imageInfoList size: ${imageInfoList.size}")
     }
 
-    private fun getSongListFromDir(): List<Song> {
-        val songList =
-            imageLoader.getAllMusicFromLocalStorage(this@MainActivity, CommonConstant.MY_MUSIC_DIR)
+    private fun createImagePickerFolder() {
+        val downloadDirectory = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        ).toString()
 
-        for (song in songList) {
-            Log.i(CommonConstant.MY_LOG_TAG, song.toString())
+        val folderName = "ImagePicker"
+        val subFolderPath = "$downloadDirectory/$folderName"
+        val subFolder = File(subFolderPath)
+
+        // Check if the folder "ImagePicker" exists, and create it if it doesn't
+        if (!subFolder.exists()) {
+            if (subFolder.mkdirs()) {
+                // Folder created successfully
+                Log.d(CommonConstant.MY_LOG_TAG, "Folder '$folderName' created")
+            } else {
+                // Failed to create folder
+                Log.e(CommonConstant.MY_LOG_TAG, "Failed to create '$folderName' folder")
+                // Handle the error gracefully
+            }
+        } else {
+            // Folder already exists
+            Log.d(CommonConstant.MY_LOG_TAG, "Folder '$folderName' already exists")
         }
+    }
 
-        return songList
+    private fun getSongListFromDir(): List<Song> {
+        return imageLoader.getAllMusicFromLocalStorage(
+            this@MainActivity,
+            CommonConstant.MY_MUSIC_DIR
+        )
     }
 
     override fun onDestroy() {
@@ -251,10 +274,13 @@ class MainActivity : AppCompatActivity() {
             unregisterReceiver(downloadReceiver)
         }
 
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver)
+
         myFileWatcher.stopWatching()
     }
 
-    inner class DownloadReceiver(private val myImage: MyImage) : BroadcastReceiver() {
+    inner class DownloadReceiver(private val myImage: MyImage, private val position: Int) :
+        BroadcastReceiver() {
         @SuppressLint("NotifyDataSetChanged")
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
@@ -283,9 +309,9 @@ class MainActivity : AppCompatActivity() {
                         val filePath = downloadedUri.path // File path in the device's storage
                         // Now you have the file path to the downloaded image
                         if (filePath != null) {
-                            binding.imvImageFrame.setImageURI(Uri.parse(filePath))
                             // Update recycler view
-//                            binding.rcvImages.adapter?.notifyItemChanged()
+                            binding.rcvImages.adapter?.notifyItemChanged(position)
+                            binding.imvImageFrame.setImageURI(Uri.parse(filePath))
                         } else {
                             Toast.makeText(
                                 this@MainActivity,

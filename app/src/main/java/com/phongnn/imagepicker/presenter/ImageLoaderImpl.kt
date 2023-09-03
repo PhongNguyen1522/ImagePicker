@@ -68,7 +68,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                                 callBack.onImageTopicReturn(folder)
                                 val totalImage = photoFrame.totalImage
                                 // Call API for each Images
-                                for (frameNumber in 1..5) {
+                                for (frameNumber in 1..2) {
                                     // Link Uri for call images
                                     val myUri = ImageLinkConverter.getInstance().getChildImagePath(
                                         APIConstantString.START_LINK_FULL_FOR_DOWNLOAD,
@@ -109,7 +109,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                     if (response.isSuccessful) {
                         val imgUrl = response.body()!!.bytes()
                         val imageName = "${folder}_${number}.jpg"
-                        myImage = MyImage(imageName, imgUrl, myUri)
+                        myImage = MyImage(imageName, imgUrl, myUri, folder)
 
                         // Callback for save and update
                         callBack.onImageReturn(myImage)
@@ -133,17 +133,28 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
             .setTitle("Image Download")
             .setDescription("Downloading image ...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+
         val downloadDirectory = Environment.getExternalStoragePublicDirectory(
             Environment.DIRECTORY_DOWNLOADS
         ).toString()
+
         val folderName = "ImagePicker"
         val fileName = myImage.imageName
         val subFolderPath = "$downloadDirectory/$folderName"
         val subFolder = File(subFolderPath)
+
+        // Check if the folder "ImagePicker" exists, and create it if it doesn't
         if (!subFolder.exists()) {
-            subFolder.mkdir()
+            if (subFolder.mkdirs()) {
+                Log.d(CommonConstant.MY_LOG_TAG, "Folder 'ImagePicker' created")
+            } else {
+                Log.e(CommonConstant.MY_LOG_TAG, "Failed to create 'ImagePicker' folder")
+                // Handle the error gracefully
+                return -1 // Return an error code or handle the error as needed
+            }
         }
-        // Set dest folder and file name
+
+        // Set destination folder and file name
         val destFilePath = "$subFolderPath/$fileName"
 
         request.setDestinationUri(Uri.parse("file://$destFilePath"))
@@ -153,6 +164,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
         Log.d(CommonConstant.MY_LOG_TAG, "Download ID: $id")
         return id
     }
+
 
     override fun getAllImagesFromLocalStorage(folderPath: String): List<ImageInfo> {
         val imgInfoList = mutableListOf<ImageInfo>()

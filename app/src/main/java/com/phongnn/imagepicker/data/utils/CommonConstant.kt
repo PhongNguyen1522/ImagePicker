@@ -6,4 +6,7 @@ object CommonConstant {
     const val MY_MUSIC_DIR = "/storage/emulated/0/Music/ImagePickerSong/"
     const val PLAY = 1
     const val PAUSE = 0
+    const val ACTION_PLAY = "com.example.app.ACTION_PLAY"
+    const val ACTION_PAUSE = "com.example.app.ACTION_PAUSE"
+    const val ACTION_UPDATE_BUTTON_STATE = "com.example.myapp.UPDATE_BUTTON_STATE"
 }
