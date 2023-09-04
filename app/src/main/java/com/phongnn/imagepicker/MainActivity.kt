@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
@@ -35,6 +36,7 @@ class MainActivity : AppCompatActivity() {
         var isPlaying = false
     }
 
+    private lateinit var myFolder: String
     private lateinit var binding: ActivityMainBinding
     private lateinit var imageLoader: ImageLoader
     private lateinit var myFileWatcher: MyFileWatcher
@@ -72,6 +74,8 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        createImagePickerFolder()
+
         imageLoader = ImageLoaderImpl.getInstance(this)
 
         // Loading Images From API into RecyclerView
@@ -106,12 +110,6 @@ class MainActivity : AppCompatActivity() {
         // Load stored images into InfoImageList
         getInfoImageFromDir()
 
-        // Show song list dialog
-        binding.cvMusicNote.setOnClickListener {
-            showSongListDialog()
-        }
-
-
         // Register the LocalBroadcastReceiver to listen for data
         val filter = IntentFilter(CommonConstant.ACTION_UPDATE_BUTTON_STATE)
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter)
@@ -121,6 +119,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
         super.onResume()
+
+        // Show song list dialog
+        binding.cvMusicNote.setOnClickListener {
+            showSongListDialog()
+        }
+
         createImagePickerFolder()
         // Init Recycler View
         initRecyclerView()
@@ -130,6 +134,10 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("NotifyDataSetChanged")
     private fun initRecyclerView() {
+
+        val myChildImageLayoutManager =
+            LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+
         val childImageAdapter =
             ChildImageAdapter(
                 this@MainActivity,
@@ -162,24 +170,54 @@ class MainActivity : AppCompatActivity() {
                     }
                 })
 
-        binding.rcvImages.apply {
+        val topicImageAdapter =
+            TopicImageAdapter(topicList, object : TopicImageAdapter.TopicClickListener {
+                override fun onItemClick(topic: String) {
+                    for (i in 0 until imagesList.size) {
+                        if (topic.equals(imagesList[i].folder, false)) {
+                            myChildImageLayoutManager.scrollToPositionWithOffset(i, 0)
+                            break
+                        }
+                    }
+                }
+            })
+
+
+        binding.rcvImagesTopic.apply{
             layoutManager =
-                LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+                LinearLayoutManager(
+                    this@MainActivity,
+                    LinearLayoutManager.HORIZONTAL,
+                    false
+                )
+            adapter = topicImageAdapter
+        }
+
+        binding.rcvImages.apply {
+            layoutManager = myChildImageLayoutManager
             adapter = childImageAdapter
         }
 
-        val topicImageAdapter =
-            TopicImageAdapter(topicList, object : TopicImageAdapter.TopicClickListener{
-                override fun onItemClick(position: Int) {
+        binding.rcvImages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val firstVisibleItem = myChildImageLayoutManager.findFirstVisibleItemPosition()
+                val lastVisibleItem = myChildImageLayoutManager.findLastVisibleItemPosition()
 
+                if (firstVisibleItem != RecyclerView.NO_POSITION && lastVisibleItem != RecyclerView.NO_POSITION) {
+                    myFolder = childImageAdapter.getItemAtPosition(firstVisibleItem).folder
+                    Log.i(CommonConstant.MY_LOG_TAG, "Folder name: $myFolder")
+                    // Find the position of the topic
+                    for (t in 0 until topicList.size) {
+                        if (myFolder.equals(topicList[t], false)) {
+                            topicImageAdapter.selectedPosition = t
+                            topicImageAdapter.notifyDataSetChanged()
+                        }
+                    }
                 }
 
-            })
-        binding.rcvImagesTopic.apply {
-            layoutManager =
-                LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = topicImageAdapter
-        }
+            }
+        })
     }
 
     private fun loadingImage(apiCallBack: ApiCallBack) {
@@ -188,17 +226,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSongListDialog() {
         val songList = getSongListFromDir()
-        songListDialogFragment = SongListDialogFragment(songList, object : MusicServiceListener {
-            override fun onMusicIsPlaying(song: Song) {
-                binding.apply {
-                    songListDialogFragment.dismiss()
-                    tvSongName.text = song.title
-                    tvSongWriter.text = song.artist
-                    icPlayPause.setImageResource(R.drawable.ic_pause)
+        songListDialogFragment =
+            SongListDialogFragment(songList, object : MusicServiceListener {
+                override fun onMusicIsPlaying(song: Song) {
+                    binding.apply {
+                        songListDialogFragment.dismiss()
+                        tvSongName.text = song.title
+                        tvSongWriter.text = song.artist
+                        icPlayPause.setImageResource(R.drawable.ic_pause)
+                    }
                 }
-            }
 
-        })
+            })
         songListDialogFragment.show(supportFragmentManager, "song_list_dialog")
         binding.icPlayPause.visibility = View.VISIBLE
     }
@@ -279,7 +318,10 @@ class MainActivity : AppCompatActivity() {
         myFileWatcher.stopWatching()
     }
 
-    inner class DownloadReceiver(private val myImage: MyImage, private val position: Int) :
+    inner class DownloadReceiver(
+        private val myImage: MyImage,
+        private val position: Int,
+    ) :
         BroadcastReceiver() {
         @SuppressLint("NotifyDataSetChanged")
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -303,7 +345,8 @@ class MainActivity : AppCompatActivity() {
 
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
 
-                        val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                        val localUriIndex =
+                            cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
                         val downloadedUriString = cursor.getString(localUriIndex)
                         val downloadedUri = Uri.parse(downloadedUriString)
                         val filePath = downloadedUri.path // File path in the device's storage

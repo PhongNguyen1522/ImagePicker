@@ -15,10 +15,10 @@ class TopicImageAdapter(
     private var itemClickListener: TopicClickListener?,
 ) : RecyclerView.Adapter<TopicImageAdapter.TopicViewHolder>() {
 
-    private var selectedPosition = RecyclerView.SCROLLBAR_POSITION_DEFAULT
+    var selectedPosition = RecyclerView.SCROLLBAR_POSITION_DEFAULT
 
     interface TopicClickListener {
-        fun onItemClick(position: Int)
+        fun onItemClick(topic: String)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TopicViewHolder {
@@ -39,9 +39,11 @@ class TopicImageAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         private val textView = binding.tvTopic
+
         @SuppressLint("NotifyDataSetChanged")
-        fun bind(str: String, position: Int) {
-            textView.text = str
+        fun bind(topic: String, position: Int) {
+
+            textView.text = topic
             // Set text color based on position
             if (selectedPosition == position) {
                 textView.apply {
@@ -64,10 +66,10 @@ class TopicImageAdapter(
                     setTypeface(null, Typeface.NORMAL)
                 }
             }
-            // Set On Click
+//             Set On Click
             textView.setOnClickListener {
                 selectedPosition = position
-                itemClickListener?.onItemClick(position)
+                itemClickListener?.onItemClick(topic)
                 notifyDataSetChanged()
             }
         }

@@ -116,6 +116,10 @@ class ChildImageAdapter(
         }
     }
 
+    fun getItemAtPosition(position: Int): MyImage {
+        return newImages[position]
+    }
+
     private fun checkCurrentImageInStorage(
         name: String,
         cvIcDownload: CardView,
