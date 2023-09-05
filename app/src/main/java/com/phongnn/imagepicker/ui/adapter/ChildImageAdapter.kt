@@ -98,6 +98,7 @@ class ChildImageAdapter(
                 .load(myImage.matrix)
                 .into(binding.imvChildImage)
 
+
             // Check isDownloaded to show or not
             checkCurrentImageInStorage(
                 myImage.imageName,
