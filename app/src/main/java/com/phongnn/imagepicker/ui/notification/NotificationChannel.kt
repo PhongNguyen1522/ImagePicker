@@ -18,14 +18,11 @@ class  NotificationChannel : Application() {
     }
 
     // From the 8th android, we have to create Channel Notification ID
-    @SuppressLint("ObsoleteSdkInt")
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val notificationChannel = NotificationChannel(CHANNEL_ID,"MyNotification", NotificationManager.IMPORTANCE_DEFAULT)
-            notificationChannel.setSound(null, null)
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(notificationChannel)
-        }
+        val notificationChannel = NotificationChannel(CHANNEL_ID,"MyMusicNotification", NotificationManager.IMPORTANCE_DEFAULT)
+        notificationChannel.setSound(null, null)
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(notificationChannel)
     }
 
 }

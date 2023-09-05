@@ -4,6 +4,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
 
     <application
         android:name=".ui.notification.NotificationChannel"
@@ -25,6 +30,19 @@
             </intent-filter>
         </activity>
         <service android:name=".ui.service.MusicService" />
+
+        <receiver
+            android:name=".presenter.receiver.MusicReceiver"
+            android:exported="true">
+            <!-- Define the broadcast actions that this receiver can handle -->
+            <intent-filter>
+                <action android:name="com.example.app.ACTION_PLAY" />
+                <action android:name="com.example.app.ACTION_PAUSE" />
+                <action android:name="com.example.myapp.UPDATE_BUTTON_STATE" />
+                <!-- Add other action declarations as needed -->
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

@@ -1,52 +1,191 @@
 package com.phongnn.imagepicker
 
+import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
-import android.database.sqlite.SQLiteConstraintException
-import android.media.MediaPlayer
-import androidx.appcompat.app.AppCompatActivity
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.View
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.bumptech.glide.Glide
-import com.phongnn.imagepicker.data.dbentity.entity.ImageEntity
+import androidx.recyclerview.widget.RecyclerView
+import com.phongnn.imagepicker.data.model.ImageInfo
 import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.CommonConstant
 import com.phongnn.imagepicker.databinding.ActivityMainBinding
-import com.phongnn.imagepicker.presenter.ImageLoader
-import com.phongnn.imagepicker.presenter.ImageLoaderImpl
-import com.phongnn.imagepicker.presenter.callback.ApiCallBack
-import com.phongnn.imagepicker.presenter.callback.DatabaseCallBack
-import com.phongnn.imagepicker.presenter.callback.MusicServiceListener
-import com.phongnn.imagepicker.presenter.callback.SongPassedListener
+import com.phongnn.imagepicker.presenter.*
+import com.phongnn.imagepicker.presenter.callback.*
 import com.phongnn.imagepicker.ui.adapter.ChildImageAdapter
 import com.phongnn.imagepicker.ui.adapter.TopicImageAdapter
 import com.phongnn.imagepicker.ui.fragment.SongListDialogFragment
 import com.phongnn.imagepicker.ui.service.MusicService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var imageLoader: ImageLoader
-    private var imagesList = mutableListOf<MyImage>()
-    private var savedImageList = mutableListOf<ImageEntity>()
-    private var topicList = mutableListOf<String>()
-    private lateinit var songListDialogFragment: SongListDialogFragment
-
     companion object {
         var isPlaying = false
+        var currentSongPosition = -1
+    }
+
+    private lateinit var myFolder: String
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var imageLoader: ImageLoader
+    private lateinit var myFileWatcher: MyFileWatcher
+    private var imagesList = mutableListOf<MyImage>()
+    private var topicList = mutableListOf<String>()
+    private lateinit var songListDialogFragment: SongListDialogFragment
+    private var imageInfoList = mutableListOf<ImageInfo>()
+    private var downloadReceiver: DownloadReceiver? = null
+    private lateinit var songList: List<Song>
+
+    private val receiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val state = intent?.getStringExtra("button_state")
+            if (state != null) {
+                when (state) {
+                    CommonConstant.ACTION_PREVIOUS_SONG -> {
+                        startServicePreviousSong()
+                    }
+                    CommonConstant.ACTION_PAUSE -> {
+                        isPlaying = true
+                        startServicePause()
+                    }
+                    CommonConstant.ACTION_PLAY -> {
+                        isPlaying = false
+                        startServicePlay()
+                    }
+                    CommonConstant.ACTION_NEXT_SONG -> {
+                        startServiceNextSong()
+                    }
+                    else -> {
+                        throw Exception("NO_ACTION")
+                    }
+                }
+
+            }
+        }
+    }
+
+    private fun startServiceNextSong() {
+        if (currentSongPosition < songList.size - 1) {
+
+            currentSongPosition += 1
+            Log.i(CommonConstant.MY_LOG_TAG, "currentSongPosition = $currentSongPosition")
+
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            val song = songList[currentSongPosition]
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        } else {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val song = songList[songList.size - 1]
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        }
+    }
+
+    private fun startServicePlay() {
+        if (!isPlaying) {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+            val intent = Intent(this@MainActivity, MusicService::class.java)
+            intent.putExtra("action", CommonConstant.PLAY)
+            startService(intent)
+        }
+    }
+
+    private fun startServicePause() {
+        if (isPlaying) {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_play)
+            val intent = Intent(this@MainActivity, MusicService::class.java)
+            intent.putExtra("action", CommonConstant.PAUSE)
+            startService(intent)
+        }
+    }
+
+    private fun startServicePreviousSong() {
+        if (currentSongPosition > 0) {
+
+            currentSongPosition -= 1
+            Log.i(CommonConstant.MY_LOG_TAG, "currentSongPosition = $currentSongPosition")
+
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            val song = songList[currentSongPosition]
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        } else {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val song = songList[0]
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d(CommonConstant.MY_LOG_TAG, "onCreate()")
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        createImagePickerFolder()
+
         imageLoader = ImageLoaderImpl.getInstance(this)
-        // Loading Images into RecyclerView
+        songList = getSongListFromDir()
+
+        // Loading Images From API into RecyclerView
         runBlocking {
             launch(Dispatchers.IO) {
                 loadingImage(object : ApiCallBack {
@@ -66,148 +205,167 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Check saved image list to determine saved images before
-        runBlocking {
-            launch(Dispatchers.IO) {
-                savedImage(object : DatabaseCallBack {
-                    override fun onImageSelected(savingImage: ImageEntity) {
-                        TODO("Not yet implemented")
-                    }
-                    override fun onAllImagesReturn(allUsers: List<ImageEntity>) {
-                        savedImageList.addAll(allUsers)
-                    }
-                })
+        // Initialize myWatcher
+        myFileWatcher = MyFileWatcher(this, CommonConstant.MY_IMAGE_DIR, object :
+            MyFileWatcher.MyOwnFileChanged {
+            override fun onChangedFile() {
+                getInfoImageFromDir()
             }
-        }
 
-        // Init Recycler View
-        initRecyclerView()
+        })
+
+        // Load stored images into InfoImageList
+        getInfoImageFromDir()
+
+        // Register the LocalBroadcastReceiver to listen for data
+        val filter = IntentFilter(CommonConstant.ACTION_UPDATE_BUTTON_STATE)
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter)
+    }
+
+
+    override fun onResume() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onResume()")
+        super.onResume()
 
         // Show song list dialog
-        binding.tvSongName.setOnClickListener {
+        binding.cvMusicNote.setOnClickListener {
             showSongListDialog()
         }
 
+        createImagePickerFolder()
+        // Init Recycler View
+        initRecyclerView()
         // start service for play music
         onClickPlayOrPauseMusic()
     }
 
-    override fun onResume() {
-        super.onResume()
-        binding.btnNoneImage.setOnClickListener {
-            binding.imvImageFrame.setImageBitmap(null)
-        }
-    }
-
+    @SuppressLint("NotifyDataSetChanged")
     private fun initRecyclerView() {
+
+        val myChildImageLayoutManager =
+            LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+        val myTopicLayoutManager =
+            LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+
         val childImageAdapter =
             ChildImageAdapter(
+                this@MainActivity,
                 imagesList,
-                savedImageList,
+                imageInfoList,
                 object : ChildImageAdapter.ItemClickListener {
-                    override fun onDownloadImage(imageEntity: ImageEntity) {
+
+                    override fun onDownloadImageToStorage(myImage: MyImage, position: Int) {
                         try {
-                            imageLoader.downloadImage(this@MainActivity, imageEntity)
-                        } catch (e: SQLiteConstraintException) {
-                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
+                            imageLoader.downLoadImageToStorage(this@MainActivity, myImage)
+                            // Create filter
+                            val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+                            downloadReceiver = DownloadReceiver(position)
+                            registerReceiver(downloadReceiver, filter)
+
+                        } catch (e: Exception) {
+                            Log.e(
+                                CommonConstant.MY_LOG_TAG,
+                                "onDownloadImage: ${e.message.toString()}"
+                            )
                         }
                     }
 
-                    override fun onShowSavedImage(imageEntity: ImageEntity) {
-                        try {
-                            Glide.with(this@MainActivity)
-                                .load(imageEntity.imageUrl)
-                                .into(binding.imvImageFrame)
-                        } catch (e: Exception) {
-                            Log.e(CommonConstant.MY_LOG_TAG, e.message.toString())
-                        }
+                    override fun onShowDownloadedImage(imageInfo: ImageInfo) {
+                        binding.imvImageFrame.setImageURI(imageInfo.uriPath)
+                    }
+
+                    override fun onClickButtonNone() {
+                        binding.imvImageFrame.setImageBitmap(null)
                     }
                 })
-        binding.rcvImages.apply {
-            layoutManager =
-                LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
-            adapter = childImageAdapter
-        }
 
         val topicImageAdapter =
             TopicImageAdapter(topicList, object : TopicImageAdapter.TopicClickListener {
-                override fun onItemClick(position: Int) {
-                    scrollToPosition(position * 5)
+                override fun onItemClick(topic: String) {
+                    for (i in 0 until imagesList.size) {
+                        if (topic.equals(imagesList[i].folder, false)) {
+                            myChildImageLayoutManager.scrollToPositionWithOffset(i, 0)
+                            break
+                        }
+                    }
                 }
+            })
 
-                override fun onItemScroll(position: Int) {
 
-                }
-
-            }, onScrollViewListener())
         binding.rcvImagesTopic.apply {
             layoutManager =
-                LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+                myTopicLayoutManager
             adapter = topicImageAdapter
         }
+
+        binding.rcvImages.apply {
+            layoutManager = myChildImageLayoutManager
+            adapter = childImageAdapter
+        }
+
+        binding.rcvImages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val firstVisibleItem = myChildImageLayoutManager.findFirstVisibleItemPosition()
+                val lastVisibleItem = myChildImageLayoutManager.findLastVisibleItemPosition()
+
+                if (firstVisibleItem != RecyclerView.NO_POSITION && lastVisibleItem != RecyclerView.NO_POSITION) {
+
+                    myFolder = childImageAdapter.getItemAtPosition(firstVisibleItem).folder
+                    // Find the position of the topic
+                    for (t in 0 until topicList.size) {
+                        if (myFolder.equals(topicList[t], false)) {
+
+                            topicImageAdapter.selectedPosition = t
+                            topicImageAdapter.notifyDataSetChanged()
+
+                            val lastTopicVisibleItemPosition =
+                                myTopicLayoutManager.findLastVisibleItemPosition()
+                            val firstTopicVisibleItemPosition =
+                                myTopicLayoutManager.findFirstVisibleItemPosition()
+
+                            if (firstTopicVisibleItemPosition != RecyclerView.NO_POSITION
+                                && lastTopicVisibleItemPosition != RecyclerView.NO_POSITION
+                            ) {
+                                // Check that if t is over range of first.. last
+                                if (t >= lastTopicVisibleItemPosition || t <= firstTopicVisibleItemPosition) {
+                                    myTopicLayoutManager.scrollToPositionWithOffset(t, 0)
+                                }
+                            }
+                        }
+                    }
+                }
+
+            }
+        })
     }
 
     private fun loadingImage(apiCallBack: ApiCallBack) {
         imageLoader.loadImage(apiCallBack)
     }
 
-    private fun savedImage(databaseCallBack: DatabaseCallBack) {
-        imageLoader.showAllImages(databaseCallBack)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-    }
-
-    private fun scrollToPosition(position: Int) {
-        val scrollSize = 160
-        binding.hsvMenu.smoothScrollTo(position * scrollSize, 0)
-    }
-
-    private fun onScrollViewListener(): Int {
-
-        var currentPosition = 0
-        binding.hsvMenu.viewTreeObserver.addOnScrollChangedListener {
-            val scrollX = binding.hsvMenu.scrollX
-            val scrollViewWidth = binding.hsvMenu.getChildAt(0).width - 700
-
-            val part = scrollViewWidth / 5
-
-            currentPosition = scrollX / part
-
-            Log.d(CommonConstant.MY_LOG_TAG, "scrollX = $scrollX")
-            Log.d(CommonConstant.MY_LOG_TAG, "scrollViewWidth = $scrollViewWidth")
-            Log.d(CommonConstant.MY_LOG_TAG, "currentPosition = $currentPosition")
-        }
-        return currentPosition
-    }
-
     private fun showSongListDialog() {
-        val songList = createSongList()
-        songListDialogFragment = SongListDialogFragment(songList, object : MusicServiceListener{
-            override fun onMusicIsPlaying(song: Song) {
-                binding.apply {
-                    songListDialogFragment.dismiss()
-                    tvSongName.text = song.title
-                    tvSongWriter.text = song.artist
-                    icPlayPause.setImageResource(R.drawable.ic_pause)
+        songListDialogFragment =
+            SongListDialogFragment(songList, object : MusicServiceListener {
+                override fun onMusicIsPlaying(song: Song) {
+                    binding.apply {
+                        songListDialogFragment.dismiss()
+                        tvSongName.text = song.title
+                        tvSongWriter.text = song.artist
+                        icPlayPause.setImageResource(R.drawable.ic_pause)
+                    }
                 }
-            }
 
-        })
+            })
+
         songListDialogFragment.show(supportFragmentManager, "song_list_dialog")
         binding.icPlayPause.visibility = View.VISIBLE
     }
 
     private fun onClickPlayOrPauseMusic() {
         val startBtn = binding.icPlayPause
-
         startBtn.setOnClickListener {
-//            if (checkEmptySongToPlay()) {
-//                binding.icPlayPause.visibility = View.GONE
-//            } else {
-//                binding.icPlayPause.visibility = View.VISIBLE
-//            }
             if (!isPlaying) {
                 binding.icPlayPause.visibility = View.VISIBLE
                 binding.icPlayPause.setImageResource(R.drawable.ic_pause)
@@ -224,15 +382,127 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createSongList(): List<Song> {
-        return listOf(
-            Song(1, "Song 1", "Artist 1", R.raw.vang_trang_khoc),
-            Song(2, "Song 2", "Artist 2", R.raw.thuan_theo_y_troi),
-            Song(3, "Song 3", "Artist 3", R.raw.suyt_nua_thi),
-            Song(4, "Song 4", "Artist 4", R.raw.nag_tho),
-            Song(5, "Song 5", "Artist 5", R.raw.mua_xa_nhau),
-            Song(6, "Song 6", "Artist 6", R.raw.mot_thoi_da_xa),
-            Song(7, "Song 7", "Artist 7", R.raw.ko_thuong_minh_de_thuong_nguoi),
+
+    private fun getInfoImageFromDir() {
+        imageInfoList.clear()
+        val tmp = imageLoader.getAllImagesFromLocalStorage(CommonConstant.MY_IMAGE_DIR)
+        imageInfoList.addAll(tmp)
+    }
+
+    private fun createImagePickerFolder() {
+        val downloadDirectory = Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS
+        ).toString()
+
+        val folderName = "ImagePicker"
+        val subFolderPath = "$downloadDirectory/$folderName"
+        val subFolder = File(subFolderPath)
+
+        // Check if the folder "ImagePicker" exists, and create it if it doesn't
+        if (!subFolder.exists()) {
+            if (subFolder.mkdirs()) {
+                // Folder created successfully
+                Log.d(CommonConstant.MY_LOG_TAG, "Folder '$folderName' created")
+            } else {
+                // Failed to create folder
+                Log.e(CommonConstant.MY_LOG_TAG, "Failed to create '$folderName' folder")
+                // Handle the error gracefully
+            }
+        } else {
+            // Folder already exists
+            Log.d(CommonConstant.MY_LOG_TAG, "Folder '$folderName' already exists")
+        }
+    }
+
+    private fun getSongListFromDir(): List<Song> {
+        return imageLoader.getAllMusicFromLocalStorage(
+            this@MainActivity,
+            CommonConstant.MY_MUSIC_DIR
         )
     }
+
+    override fun onDestroy() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onDestroy()")
+        super.onDestroy()
+
+        Intent(this@MainActivity, MusicService::class.java).also {
+            stopService(it)
+        }
+
+        if (downloadReceiver != null) {
+            unregisterReceiver(downloadReceiver)
+        }
+
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver)
+
+        myFileWatcher.stopWatching()
+    }
+
+    inner class DownloadReceiver(
+        private val position: Int,
+    ) :
+        BroadcastReceiver() {
+        @SuppressLint("NotifyDataSetChanged")
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
+
+                // Update myInfoImageList
+                Log.d(CommonConstant.MY_LOG_TAG, "Download STATUS_SUCCESSFUL")
+                getInfoImageFromDir()
+
+                val downloadManager =
+                    context?.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+                val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+
+                val query = DownloadManager.Query().setFilterById(downloadId)
+
+                val cursor = downloadManager.query(query)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    val status = cursor.getInt(columnIndex)
+
+                    if (status == DownloadManager.STATUS_SUCCESSFUL) {
+
+                        val localUriIndex =
+                            cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                        val downloadedUriString = cursor.getString(localUriIndex)
+                        val downloadedUri = Uri.parse(downloadedUriString)
+                        val filePath = downloadedUri.path // File path in the device's storage
+                        // Now you have the file path to the downloaded image
+                        if (filePath != null) {
+                            // Update recycler view
+                            binding.rcvImages.adapter?.notifyItemChanged(position)
+                            binding.imvImageFrame.setImageURI(Uri.parse(filePath))
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Non-existed image",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        cursor.close()
+                    }
+                }
+
+            }
+        }
+    }
+
+
+    override fun onPause() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onPause()")
+        super.onPause()
+    }
+
+    override fun onStop() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onStop()")
+        super.onStop()
+    }
+
+    override fun onStart() {
+        Log.d(CommonConstant.MY_LOG_TAG, "onStart()")
+        super.onStart()
+    }
+
 }

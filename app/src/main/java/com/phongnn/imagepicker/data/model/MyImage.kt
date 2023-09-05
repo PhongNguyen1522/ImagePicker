@@ -1,6 +1,12 @@
 package com.phongnn.imagepicker.data.model
 
-data class MyImage(val matrix: ByteArray, val uri: String, val type: String, val frameNumber: Int) {
+data class MyImage(
+    val imageName: String,
+    val matrix: ByteArray,
+    val uri: String,
+    val folder: String,
+    val viewType: Int
+) : java.io.Serializable {
 
     // Auto gen code when add a ByteArray parameter
     override fun equals(other: Any?): Boolean {

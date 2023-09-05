@@ -24,17 +24,17 @@ class SongListAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songList[position]
-        holder.bind(song)
+        holder.bind(song, position)
     }
 
     inner class SongViewHolder(private val binding: ItemSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(song: Song) {
+        fun bind(song: Song, position: Int) {
             binding.tvSongNameItem.text = song.title
             binding.tvSongWriterItem.text = song.artist
 
             binding.llSongItem.setOnClickListener {
-                songPassedListener?.onSongPassed(song)
+                songPassedListener?.onSongPassed(song, position)
             }
         }
     }
