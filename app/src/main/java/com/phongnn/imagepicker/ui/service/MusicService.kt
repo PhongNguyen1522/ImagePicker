@@ -35,6 +35,14 @@ class MusicService : Service() {
         super.onCreate()
         mediaPlayer = MediaPlayer()
         mediaSession = MediaSessionCompat(baseContext, "My Music")
+
+        mediaPlayer.setOnCompletionListener {
+            playNextSong()
+        }
+    }
+
+    private fun playNextSong() {
+        getPendingIntent(this, CommonConstant.ACTION_NEXT_SONG)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -78,7 +86,6 @@ class MusicService : Service() {
                 if (!MainActivity.isPlaying) {
                     MainActivity.isPlaying = true
                     mediaPlayer.start()
-
                 }
             }
             CommonConstant.PAUSE -> {
@@ -129,16 +136,22 @@ class MusicService : Service() {
             .setContentIntent(pendingIntent)
             .setStyle(
                 androidx.media.app.NotificationCompat.MediaStyle()
-                    .setShowActionsInCompactView(0).setMediaSession(mediaSession.sessionToken)
+                    .setShowActionsInCompactView(1).setMediaSession(mediaSession.sessionToken)
             )
             .setContentText(song.artist)
             .setContentTitle(song.title).setLargeIcon(bitmap)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .addAction(
+                R.drawable.ic_fast_rewind_24, "Previous Song", getPendingIntent(this, CommonConstant.ACTION_PREVIOUS_SONG)
+            )
+            .addAction(
                 R.drawable.ic_pause, "Pause", getPendingIntent(this, CommonConstant.ACTION_PAUSE)
             )
             .addAction(
                 R.drawable.ic_play, "Play", getPendingIntent(this, CommonConstant.ACTION_PLAY)
+            )
+            .addAction(
+                R.drawable.ic_fast_forward_24, "Next Song", getPendingIntent(this, CommonConstant.ACTION_NEXT_SONG)
             )
             .build()
         startForeground(1, notification)
@@ -188,12 +201,12 @@ class MusicService : Service() {
     }
 
     private fun getPendingIntent(context: Context, action: String): PendingIntent? {
-        val playOrPauseIntent = Intent(this, MusicReceiver::class.java)
-        playOrPauseIntent.action = action
+        val userActionIntent = Intent(this, MusicReceiver::class.java)
+        userActionIntent.action = action
         return PendingIntent.getBroadcast(
             context,
             0,
-            playOrPauseIntent,
+            userActionIntent,
             PendingIntent.FLAG_IMMUTABLE
         )
     }

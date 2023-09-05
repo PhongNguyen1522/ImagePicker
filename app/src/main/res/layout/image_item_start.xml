@@ -3,13 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="60dp"
     android:layout_height="60dp"
-    android:layout_marginHorizontal="2dp">
+    android:layout_marginStart="12dp">
 
     <androidx.cardview.widget.CardView
         android:id="@+id/cv_imv_child"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="@drawable/left_rounded_bg"
+        android:layout_marginEnd="-16dp"
+        app:cardCornerRadius="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -24,12 +25,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="fitCenter"
-                android:src="#CDDC39" />
+                android:src="@color/teal_200" />
 
             <androidx.cardview.widget.CardView
-                android:id="@+id/cv_ic_download"
+                android:id="@+id/cv_ic_download_start"
                 android:layout_width="18dp"
                 android:layout_height="18dp"
+                android:layout_marginEnd="14dp"
                 android:visibility="visible"
                 app:cardCornerRadius="2dp"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -48,10 +50,22 @@
                 android:id="@+id/imv_downloaded_image"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
-                android:background="#80858DEA"
+                android:background="@drawable/rect_corner_bg_start"
                 android:padding="12dp"
-                android:scaleType="centerCrop"
+                android:layout_marginEnd="16dp"
+                android:scaleType="fitCenter"
                 android:src="@drawable/ic_3dots"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <ProgressBar
+                android:id="@+id/pb_download_image"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:padding="10dp"
                 android:visibility="gone"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"

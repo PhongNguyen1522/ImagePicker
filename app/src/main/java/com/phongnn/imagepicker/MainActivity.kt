@@ -34,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         var isPlaying = false
+        var currentSongPosition = -1
     }
 
     private lateinit var myFolder: String
@@ -45,27 +46,132 @@ class MainActivity : AppCompatActivity() {
     private lateinit var songListDialogFragment: SongListDialogFragment
     private var imageInfoList = mutableListOf<ImageInfo>()
     private var downloadReceiver: DownloadReceiver? = null
+    private lateinit var songList: List<Song>
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val state = intent?.getBooleanExtra("button_state", false)
+            val state = intent?.getStringExtra("button_state")
             if (state != null) {
-                isPlaying = state
-                if (!isPlaying) {
-                    binding.icPlayPause.visibility = View.VISIBLE
-                    binding.icPlayPause.setImageResource(R.drawable.ic_pause)
-                    val intent = Intent(this@MainActivity, MusicService::class.java)
-                    intent.putExtra("action", CommonConstant.PLAY)
-                    startService(intent)
-                } else {
-                    binding.icPlayPause.visibility = View.VISIBLE
-                    binding.icPlayPause.setImageResource(R.drawable.ic_play)
-                    val intent = Intent(this@MainActivity, MusicService::class.java)
-                    intent.putExtra("action", CommonConstant.PAUSE)
-                    startService(intent)
+                when (state) {
+                    CommonConstant.ACTION_PREVIOUS_SONG -> {
+                        startServicePreviousSong()
+                    }
+                    CommonConstant.ACTION_PAUSE -> {
+                        isPlaying = true
+                        startServicePause()
+                    }
+                    CommonConstant.ACTION_PLAY -> {
+                        isPlaying = false
+                        startServicePlay()
+                    }
+                    CommonConstant.ACTION_NEXT_SONG -> {
+                        startServiceNextSong()
+                    }
+                    else -> {
+                        throw Exception("NO_ACTION")
+                    }
                 }
+
             }
         }
+    }
 
+    private fun startServiceNextSong() {
+        if (currentSongPosition < songList.size - 1) {
+
+            currentSongPosition += 1
+            Log.i(CommonConstant.MY_LOG_TAG, "currentSongPosition = $currentSongPosition")
+
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            val song = songList[currentSongPosition]
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        } else {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val song = songList[songList.size - 1]
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        }
+    }
+
+    private fun startServicePlay() {
+        if (!isPlaying) {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+            val intent = Intent(this@MainActivity, MusicService::class.java)
+            intent.putExtra("action", CommonConstant.PLAY)
+            startService(intent)
+        }
+    }
+
+    private fun startServicePause() {
+        if (isPlaying) {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_play)
+            val intent = Intent(this@MainActivity, MusicService::class.java)
+            intent.putExtra("action", CommonConstant.PAUSE)
+            startService(intent)
+        }
+    }
+
+    private fun startServicePreviousSong() {
+        if (currentSongPosition > 0) {
+
+            currentSongPosition -= 1
+            Log.i(CommonConstant.MY_LOG_TAG, "currentSongPosition = $currentSongPosition")
+
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            val song = songList[currentSongPosition]
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        } else {
+            binding.icPlayPause.visibility = View.VISIBLE
+            binding.icPlayPause.setImageResource(R.drawable.ic_pause)
+
+            val song = songList[0]
+
+            val intent = Intent(this, MusicService::class.java)
+            // Start to play music
+            val bundle = Bundle()
+            bundle.putParcelable("object_song", song)
+            intent.putExtras(bundle)
+            intent.action = MusicService.ACTION_PLAY
+            startService(intent)
+            // Update Info in MainActivity
+            binding.tvSongName.text = song.title
+            binding.tvSongWriter.text = song.artist
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,6 +183,7 @@ class MainActivity : AppCompatActivity() {
         createImagePickerFolder()
 
         imageLoader = ImageLoaderImpl.getInstance(this)
+        songList = getSongListFromDir()
 
         // Loading Images From API into RecyclerView
         runBlocking {
@@ -183,7 +290,7 @@ class MainActivity : AppCompatActivity() {
             })
 
 
-        binding.rcvImagesTopic.apply{
+        binding.rcvImagesTopic.apply {
             layoutManager =
                 LinearLayoutManager(
                     this@MainActivity,
@@ -206,7 +313,6 @@ class MainActivity : AppCompatActivity() {
 
                 if (firstVisibleItem != RecyclerView.NO_POSITION && lastVisibleItem != RecyclerView.NO_POSITION) {
                     myFolder = childImageAdapter.getItemAtPosition(firstVisibleItem).folder
-                    Log.i(CommonConstant.MY_LOG_TAG, "Folder name: $myFolder")
                     // Find the position of the topic
                     for (t in 0 until topicList.size) {
                         if (myFolder.equals(topicList[t], false)) {
@@ -225,7 +331,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSongListDialog() {
-        val songList = getSongListFromDir()
         songListDialogFragment =
             SongListDialogFragment(songList, object : MusicServiceListener {
                 override fun onMusicIsPlaying(song: Song) {
@@ -266,7 +371,6 @@ class MainActivity : AppCompatActivity() {
         imageInfoList.clear()
         val tmp = imageLoader.getAllImagesFromLocalStorage(CommonConstant.MY_IMAGE_DIR)
         imageInfoList.addAll(tmp)
-        Log.d(CommonConstant.MY_LOG_TAG, "imageInfoList size: ${imageInfoList.size}")
     }
 
     private fun createImagePickerFolder() {

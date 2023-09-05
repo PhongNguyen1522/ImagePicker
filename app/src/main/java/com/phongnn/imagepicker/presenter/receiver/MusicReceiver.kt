@@ -9,15 +9,24 @@ import com.phongnn.imagepicker.data.utils.CommonConstant
 class MusicReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
 
-        val action = intent?.action
-        if (action == CommonConstant.ACTION_PLAY) {
-            updateButtonStateInActivity(context!!, false)
-        } else if (action == CommonConstant.ACTION_PAUSE) {
-            updateButtonStateInActivity(context!!, true)
+        when (intent?.action) {
+            CommonConstant.ACTION_PLAY -> {
+                updateButtonStateInActivity(context!!, CommonConstant.ACTION_PLAY)
+            }
+            CommonConstant.ACTION_PAUSE -> {
+                updateButtonStateInActivity(context!!, CommonConstant.ACTION_PAUSE)
+            }
+            CommonConstant.ACTION_PREVIOUS_SONG -> {
+                updateButtonStateInActivity(context!!, CommonConstant.ACTION_PREVIOUS_SONG)
+            }
+            CommonConstant.ACTION_NEXT_SONG -> {
+                updateButtonStateInActivity(context!!, CommonConstant.ACTION_NEXT_SONG)
+            }
         }
     }
 
-    private fun updateButtonStateInActivity(context: Context, state: Boolean) {
+    // Past data to mainActivity
+    private fun updateButtonStateInActivity(context: Context, state: String) {
         val updateIntent = Intent(CommonConstant.ACTION_UPDATE_BUTTON_STATE)
         updateIntent.putExtra(
             "button_state", state

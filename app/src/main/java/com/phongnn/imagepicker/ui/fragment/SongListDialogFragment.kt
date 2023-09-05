@@ -28,7 +28,9 @@ class SongListDialogFragment(
         binding.rcvSongList.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = SongListAdapter(songList, object : SongPassedListener {
-                override fun onSongPassed(song: Song) {
+                override fun onSongPassed(song: Song, position: Int) {
+
+                    MainActivity.currentSongPosition = position
 
                     val intent = Intent(requireActivity(), MusicService::class.java)
                     // Start to play music

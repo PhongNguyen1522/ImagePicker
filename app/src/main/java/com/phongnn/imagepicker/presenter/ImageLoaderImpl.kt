@@ -20,6 +20,9 @@ import com.phongnn.imagepicker.data.model.MyImage
 import com.phongnn.imagepicker.data.model.Song
 import com.phongnn.imagepicker.data.utils.APIConstantString
 import com.phongnn.imagepicker.data.utils.CommonConstant
+import com.phongnn.imagepicker.data.utils.CommonConstant.END_VIEW_TYPE
+import com.phongnn.imagepicker.data.utils.CommonConstant.NORMAL_VIEW_TYPE
+import com.phongnn.imagepicker.data.utils.CommonConstant.START_VIEW_TYPE
 import com.phongnn.imagepicker.data.utils.ImageLinkConverter
 import com.phongnn.imagepicker.presenter.callback.ApiCallBack
 import kotlinx.coroutines.Dispatchers
@@ -68,7 +71,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                                 callBack.onImageTopicReturn(folder)
                                 val totalImage = photoFrame.totalImage
                                 // Call API for each Images
-                                for (frameNumber in 1..5) {
+                                for (frameNumber in 1..1) {
                                     // Link Uri for call images
                                     val myUri = ImageLinkConverter.getInstance().getChildImagePath(
                                         APIConstantString.START_LINK_FULL_FOR_DOWNLOAD,
@@ -78,6 +81,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                                     loadEachImage(
                                         APIConstantString.START_LINK,
                                         folder,
+                                        totalImage,
                                         frameNumber,
                                         callBack,
                                         myUri
@@ -96,6 +100,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
     private fun loadEachImage(
         newStartLink: String,
         folder: String,
+        imageTotal: Int,
         number: Int,
         callBack: ApiCallBack,
         myUri: String,
@@ -109,7 +114,17 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                     if (response.isSuccessful) {
                         val imgUrl = response.body()!!.bytes()
                         val imageName = "${folder}_${number}.jpg"
-                        myImage = MyImage(imageName, imgUrl, myUri, folder)
+                        myImage = when (number) {
+                            1 -> {
+                                MyImage(imageName, imgUrl, myUri, folder, START_VIEW_TYPE)
+                            }
+                            imageTotal -> {
+                                MyImage(imageName, imgUrl, myUri, folder, END_VIEW_TYPE)
+                            }
+                            else -> {
+                                MyImage(imageName, imgUrl, myUri, folder, NORMAL_VIEW_TYPE)
+                            }
+                        }
 
                         // Callback for save and update
                         callBack.onImageReturn(myImage)
@@ -124,7 +139,6 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
             }
         }
     }
-
 
     override fun downLoadImageToStorage(context: Context, myImage: MyImage): Long {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
