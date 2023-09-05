@@ -71,7 +71,7 @@ class ImageLoaderImpl(context: Context) : ImageLoader {
                                 callBack.onImageTopicReturn(folder)
                                 val totalImage = photoFrame.totalImage
                                 // Call API for each Images
-                                for (frameNumber in 1..1) {
+                                for (frameNumber in 1..totalImage) {
                                     // Link Uri for call images
                                     val myUri = ImageLinkConverter.getInstance().getChildImagePath(
                                         APIConstantString.START_LINK_FULL_FOR_DOWNLOAD,

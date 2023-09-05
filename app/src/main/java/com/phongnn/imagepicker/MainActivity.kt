@@ -13,8 +13,6 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.DialogFragment.STYLE_NORMAL
-import androidx.fragment.app.DialogFragment.STYLE_NO_FRAME
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -246,6 +244,8 @@ class MainActivity : AppCompatActivity() {
 
         val myChildImageLayoutManager =
             LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
+        val myTopicLayoutManager =
+            LinearLayoutManager(this@MainActivity, LinearLayoutManager.HORIZONTAL, false)
 
         val childImageAdapter =
             ChildImageAdapter(
@@ -259,7 +259,7 @@ class MainActivity : AppCompatActivity() {
                             imageLoader.downLoadImageToStorage(this@MainActivity, myImage)
                             // Create filter
                             val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-                            downloadReceiver = DownloadReceiver(myImage, position)
+                            downloadReceiver = DownloadReceiver(position)
                             registerReceiver(downloadReceiver, filter)
 
                         } catch (e: Exception) {
@@ -294,11 +294,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.rcvImagesTopic.apply {
             layoutManager =
-                LinearLayoutManager(
-                    this@MainActivity,
-                    LinearLayoutManager.HORIZONTAL,
-                    false
-                )
+                myTopicLayoutManager
             adapter = topicImageAdapter
         }
 
@@ -308,18 +304,35 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.rcvImages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+
             override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
                 val firstVisibleItem = myChildImageLayoutManager.findFirstVisibleItemPosition()
                 val lastVisibleItem = myChildImageLayoutManager.findLastVisibleItemPosition()
 
                 if (firstVisibleItem != RecyclerView.NO_POSITION && lastVisibleItem != RecyclerView.NO_POSITION) {
+
                     myFolder = childImageAdapter.getItemAtPosition(firstVisibleItem).folder
                     // Find the position of the topic
                     for (t in 0 until topicList.size) {
                         if (myFolder.equals(topicList[t], false)) {
+
                             topicImageAdapter.selectedPosition = t
                             topicImageAdapter.notifyDataSetChanged()
+
+                            val lastTopicVisibleItemPosition =
+                                myTopicLayoutManager.findLastVisibleItemPosition()
+                            val firstTopicVisibleItemPosition =
+                                myTopicLayoutManager.findFirstVisibleItemPosition()
+
+                            if (firstTopicVisibleItemPosition != RecyclerView.NO_POSITION
+                                && lastTopicVisibleItemPosition != RecyclerView.NO_POSITION
+                            ) {
+                                // Check that if t is over range of first.. last
+                                if (t >= lastTopicVisibleItemPosition || t <= firstTopicVisibleItemPosition) {
+                                    myTopicLayoutManager.scrollToPositionWithOffset(t, 0)
+                                }
+                            }
                         }
                     }
                 }
@@ -426,7 +439,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class DownloadReceiver(
-        private val myImage: MyImage,
         private val position: Int,
     ) :
         BroadcastReceiver() {

@@ -43,6 +43,22 @@ class TopicImageAdapter(
         @SuppressLint("NotifyDataSetChanged")
         fun bind(topic: String, position: Int) {
 
+            // Set On Click
+            textView.setOnClickListener {
+
+                // Logic for toggle item selected
+                if (selectedPosition != position) {
+                    notifyItemChanged(selectedPosition)
+                    selectedPosition = position
+                    notifyItemChanged(position)
+                } else {
+                    notifyItemChanged(position)
+                }
+
+                itemClickListener?.onItemClick(topic)
+                notifyDataSetChanged()
+            }
+
             textView.text = topic
             // Set text color based on position
             if (selectedPosition == position) {
@@ -66,12 +82,7 @@ class TopicImageAdapter(
                     setTypeface(null, Typeface.NORMAL)
                 }
             }
-//             Set On Click
-            textView.setOnClickListener {
-                selectedPosition = position
-                itemClickListener?.onItemClick(topic)
-                notifyDataSetChanged()
-            }
+
         }
 
     }
