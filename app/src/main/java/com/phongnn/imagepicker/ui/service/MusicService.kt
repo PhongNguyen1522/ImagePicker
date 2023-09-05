@@ -70,7 +70,7 @@ class MusicService : Service() {
 
         handleActionMusic(musicAction)
 
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private fun stopCurrentSong() {

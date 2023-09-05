@@ -13,6 +13,8 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.DialogFragment.STYLE_NORMAL
+import androidx.fragment.app.DialogFragment.STYLE_NO_FRAME
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -343,6 +345,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
             })
+
         songListDialogFragment.show(supportFragmentManager, "song_list_dialog")
         binding.icPlayPause.visibility = View.VISIBLE
     }
